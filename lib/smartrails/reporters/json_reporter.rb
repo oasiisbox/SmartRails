@@ -20,11 +20,11 @@ module SmartRails
       private
 
       def generate_summary(issues)
-        return "No issues found. Your Rails application looks good!" if issues.empty?
+        return 'No issues found. Your Rails application looks good!' if issues.empty?
 
         critical_count = issues.count { |i| i[:severity] == :critical }
         high_count = issues.count { |i| i[:severity] == :high }
-        
+
         if critical_count > 0
           "Found #{critical_count} critical and #{high_count} high severity issues that need immediate attention."
         elsif high_count > 0
@@ -44,9 +44,9 @@ module SmartRails
             low: issues.count { |i| i[:severity] == :low }
           },
           by_type: issues.group_by { |i| i[:type] }
-                         .transform_values(&:count),
+            .transform_values(&:count),
           by_auditor: issues.group_by { |i| i[:auditor] }
-                            .transform_values(&:count),
+            .transform_values(&:count),
           auto_fixable: issues.count { |i| i[:auto_fix] }
         }
       end

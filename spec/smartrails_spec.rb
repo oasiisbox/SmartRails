@@ -2,7 +2,7 @@
 
 RSpec.describe SmartRails do
   it 'has a version number' do
-    expect(SmartRails::VERSION).not_to be nil
+    expect(SmartRails::VERSION).not_to be_nil
     expect(SmartRails::VERSION).to match(/\d+\.\d+\.\d+/)
   end
 

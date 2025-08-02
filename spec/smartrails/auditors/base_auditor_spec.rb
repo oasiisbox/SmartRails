@@ -23,14 +23,13 @@ RSpec.describe SmartRails::Auditors::BaseAuditor do
   describe '#add_issue' do
     it 'adds an issue to the issues array' do
       auditor.send(:add_issue,
-        type: 'Test Issue',
-        message: 'This is a test issue',
-        severity: :medium,
-        file: 'test_file.rb'
-      )
+                   type: 'Test Issue',
+                   message: 'This is a test issue',
+                   severity: :medium,
+                   file: 'test_file.rb')
 
       expect(auditor.issues).to have(1).item
-      
+
       issue = auditor.issues.first
       expect(issue[:type]).to eq('Test Issue')
       expect(issue[:message]).to eq('This is a test issue')
@@ -40,10 +39,9 @@ RSpec.describe SmartRails::Auditors::BaseAuditor do
 
     it 'sets default severity to medium if not provided' do
       auditor.send(:add_issue,
-        type: 'Test Issue',
-        message: 'This is a test issue',
-        file: 'test_file.rb'
-      )
+                   type: 'Test Issue',
+                   message: 'This is a test issue',
+                   file: 'test_file.rb')
 
       issue = auditor.issues.first
       expect(issue[:severity]).to eq(:medium)
@@ -51,13 +49,12 @@ RSpec.describe SmartRails::Auditors::BaseAuditor do
 
     it 'marks issue as auto_fixable when auto_fix is provided' do
       fix_proc = -> { puts 'fixing' }
-      
+
       auditor.send(:add_issue,
-        type: 'Test Issue',
-        message: 'This is a test issue',
-        file: 'test_file.rb',
-        auto_fix: fix_proc
-      )
+                   type: 'Test Issue',
+                   message: 'This is a test issue',
+                   file: 'test_file.rb',
+                   auto_fix: fix_proc)
 
       issue = auditor.issues.first
       expect(issue[:auto_fixable]).to be true
@@ -87,7 +84,7 @@ RSpec.describe SmartRails::Auditors::BaseAuditor do
       create_rails_controller(project_root, 'posts')
 
       files = auditor.send(:find_files, 'app/controllers/**/*_controller.rb')
-      
+
       expect(files).to include(end_with('users_controller.rb'))
       expect(files).to include(end_with('posts_controller.rb'))
     end
@@ -115,13 +112,13 @@ RSpec.describe SmartRails::Auditors::BaseAuditor do
     it 'returns empty string when file cannot be read' do
       test_file = File.join(project_root, 'unreadable.rb')
       File.write(test_file, 'content')
-      File.chmod(0000, test_file)
+      File.chmod(0o000, test_file)
 
       content = auditor.send(:read_file_safely, test_file)
       expect(content).to eq('')
-      
+
       # Clean up
-      File.chmod(0644, test_file)
+      File.chmod(0o644, test_file)
       File.delete(test_file)
     end
   end

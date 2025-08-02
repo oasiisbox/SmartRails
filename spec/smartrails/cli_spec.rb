@@ -3,7 +3,7 @@
 RSpec.describe SmartRails::CLI do
   describe '.start' do
     it 'handles version command' do
-      expect { described_class.start(['version']) }.to output(/#{SmartRails::VERSION}/).to_stdout
+      expect { described_class.start(['version']) }.to output(/#{SmartRails::VERSION}/o).to_stdout
     end
 
     it 'shows help when no command is provided' do
@@ -39,11 +39,11 @@ RSpec.describe SmartRails::CLI do
     end
 
     it 'initializes a new project' do
-      expect { described_class.start(['init', 'test_project']) }.not_to raise_error
-      
+      expect { described_class.start(%w[init test_project]) }.not_to raise_error
+
       config_file = File.join(temp_dir, '.smartrails.json')
       expect(File.exist?(config_file)).to be true
-      
+
       config = JSON.parse(File.read(config_file))
       expect(config['name']).to eq('test_project')
     end
@@ -53,7 +53,7 @@ RSpec.describe SmartRails::CLI do
     it 'starts the web server' do
       # Mock the server to avoid actually starting it
       allow_any_instance_of(SmartRails::Commands::Serve).to receive(:start_server)
-      
+
       expect { described_class.start(['serve', '--port', '9999']) }.not_to raise_error
     end
   end

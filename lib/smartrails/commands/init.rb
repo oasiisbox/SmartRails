@@ -10,7 +10,7 @@ module SmartRails
 
         project_path = Pathname.pwd.join(project_name)
         FileUtils.mkdir_p(project_path)
-        
+
         Dir.chdir(project_path) do
           config = {
             name: project_name,
@@ -25,10 +25,10 @@ module SmartRails
           ensure_directories
 
           say "\n📁 Project structure created successfully!", :blue
-          say "📝 Configuration saved in .smartrails.json", :blue
+          say '📝 Configuration saved in .smartrails.json', :blue
           say "\nNext steps:", :yellow
           say "  cd #{project_name}", :white
-          say "  smartrails audit", :white
+          say '  smartrails audit', :white
         end
       end
 
@@ -39,11 +39,9 @@ module SmartRails
         return nil unless gemfile_path.exist?
 
         gemfile_content = gemfile_path.read
-        if match = gemfile_content.match(/gem ['"]rails['"],\s*['"]([^'"]+)['"]/)
-          match[1]
-        else
-          nil
-        end
+        return unless match = gemfile_content.match(/gem ['"]rails['"],\s*['"]([^'"]+)['"]/)
+
+        match[1]
       end
     end
   end

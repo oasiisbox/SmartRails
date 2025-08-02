@@ -23,7 +23,7 @@ module SpecHelpers
       # Create Gemfile
       File.write(File.join(project_dir, 'Gemfile'), <<~GEMFILE)
         source 'https://rubygems.org'
-        
+
         gem 'rails', '~> 7.0.0'
         gem 'sqlite3', '~> 1.4'
       GEMFILE
@@ -51,7 +51,7 @@ module SpecHelpers
 
     def create_rails_controller(project_dir, name, content = nil)
       controller_file = File.join(project_dir, 'app', 'controllers', "#{name}_controller.rb")
-      
+
       content ||= <<~RUBY
         class #{name.camelize}Controller < ApplicationController
           def index
@@ -65,7 +65,7 @@ module SpecHelpers
 
     def create_rails_model(project_dir, name, content = nil)
       model_file = File.join(project_dir, 'app', 'models', "#{name}.rb")
-      
+
       content ||= <<~RUBY
         class #{name.camelize} < ApplicationRecord
         end

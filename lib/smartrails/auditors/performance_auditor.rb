@@ -33,20 +33,20 @@ module SmartRails
         end
 
         # Check for Redis
-        unless gemfile_path.read.include?('redis')
-          add_issue(
-            type: 'Caching',
-            message: 'Redis gem not found - consider using Redis for caching',
-            severity: :low,
-            file: 'Gemfile'
-          )
-        end
+        return if gemfile_path.read.include?('redis')
+
+        add_issue(
+          type: 'Caching',
+          message: 'Redis gem not found - consider using Redis for caching',
+          severity: :low,
+          file: 'Gemfile'
+        )
       end
 
       def check_database_queries
         # Check for query optimization tools
         gemfile_content = gemfile_path.read
-        
+
         unless gemfile_content.include?('rack-mini-profiler')
           add_issue(
             type: 'Performance Monitoring',
@@ -58,14 +58,14 @@ module SmartRails
 
         # Check for database connection pooling
         database_yml = read_file('config/database.yml')
-        if database_yml && !database_yml.include?('pool:')
-          add_issue(
-            type: 'Database Performance',
-            message: 'Database connection pool not configured',
-            severity: :medium,
-            file: 'config/database.yml'
-          )
-        end
+        return unless database_yml && !database_yml.include?('pool:')
+
+        add_issue(
+          type: 'Database Performance',
+          message: 'Database connection pool not configured',
+          severity: :medium,
+          file: 'config/database.yml'
+        )
       end
 
       def check_asset_optimization
@@ -83,7 +83,7 @@ module SmartRails
         end
 
         # Check for CDN configuration
-        unless production_rb.include?('config.asset_host') || 
+        unless production_rb.include?('config.asset_host') ||
                production_rb.include?('config.action_controller.asset_host')
           add_issue(
             type: 'Asset Performance',
@@ -97,56 +97,56 @@ module SmartRails
       def check_background_jobs
         gemfile_content = gemfile_path.read
         job_gems = %w[sidekiq resque delayed_job good_job]
-        
-        unless job_gems.any? { |gem| gemfile_content.include?(gem) }
-          add_issue(
-            type: 'Background Jobs',
-            message: 'No background job processor found - consider adding for async tasks',
-            severity: :medium,
-            file: 'Gemfile'
-          )
-        end
+
+        return if job_gems.any? { |gem| gemfile_content.include?(gem) }
+
+        add_issue(
+          type: 'Background Jobs',
+          message: 'No background job processor found - consider adding for async tasks',
+          severity: :medium,
+          file: 'Gemfile'
+        )
       end
 
       def check_pagination
         gemfile_content = gemfile_path.read
         pagination_gems = %w[kaminari will_paginate pagy]
-        
-        unless pagination_gems.any? { |gem| gemfile_content.include?(gem) }
-          add_issue(
-            type: 'Performance',
-            message: 'No pagination gem found - consider adding for large datasets',
-            severity: :low,
-            file: 'Gemfile'
-          )
-        end
+
+        return if pagination_gems.any? { |gem| gemfile_content.include?(gem) }
+
+        add_issue(
+          type: 'Performance',
+          message: 'No pagination gem found - consider adding for large datasets',
+          severity: :low,
+          file: 'Gemfile'
+        )
       end
 
       def check_eager_loading
         # Check controllers for potential N+1 queries
         Dir.glob(app_dir.join('controllers/**/*.rb')).each do |controller_file|
           content = File.read(controller_file)
-          
+
           # Look for signs of N+1 queries
-          if content.match?(/\.\w+\.each\s*do.*?\n.*?\.\w+\./m)
-            add_issue(
-              type: 'N+1 Queries',
-              message: 'Potential N+1 query detected - consider using includes/eager_load',
-              severity: :medium,
-              file: controller_file.sub(project_root.to_s + '/', '')
-            )
-          end
+          next unless content.match?(/\.\w+\.each\s*do.*?\n.*?\.\w+\./m)
+
+          add_issue(
+            type: 'N+1 Queries',
+            message: 'Potential N+1 query detected - consider using includes/eager_load',
+            severity: :medium,
+            file: controller_file.sub(project_root.to_s + '/', '')
+          )
         end
 
         # Check for bootsnap
-        unless gemfile_path.read.include?('bootsnap')
-          add_issue(
-            type: 'Boot Performance',
-            message: 'Bootsnap gem not found - consider adding for faster boot times',
-            severity: :low,
-            file: 'Gemfile'
-          )
-        end
+        return if gemfile_path.read.include?('bootsnap')
+
+        add_issue(
+          type: 'Boot Performance',
+          message: 'Bootsnap gem not found - consider adding for faster boot times',
+          severity: :low,
+          file: 'Gemfile'
+        )
       end
     end
   end
