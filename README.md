@@ -16,7 +16,7 @@ SmartRails is a professional CLI tool for Ruby on Rails applications that provid
 - **🤖 AI-Powered Suggestions**: Integrates with Ollama, OpenAI, and other LLMs for intelligent code improvement suggestions
 - **🔧 Auto-Fix Capabilities**: Automatically fixes common issues with a single command
 - **📈 Beautiful Reports**: Generates detailed HTML and JSON reports with actionable insights
-- **🌐 Web Interface**: Built-in web server to view and manage reports
+- **🌐 Web Interface**: Available as separate `smartrails-web` gem for modular architecture
 - **🎨 Customizable**: Extensible architecture for adding custom auditors and rules
 
 ## 📦 Installation
@@ -71,10 +71,14 @@ smartrails audit
 smartrails audit --auto
 ```
 
-### View reports in web interface
+### View reports in web interface *(Requires smartrails-web gem)*
 
 ```bash
-smartrails serve
+# Install web interface gem
+gem install smartrails-web
+
+# Launch web server
+smartrails-web serve
 # Open http://localhost:4567 in your browser
 ```
 
@@ -127,20 +131,21 @@ smartrails suggest
 smartrails suggest --llm openai --model gpt-4
 ```
 
-#### `smartrails serve [OPTIONS]`
-Launch a local web interface to view and manage reports.
+#### `smartrails serve` *(Moved to separate gem)*
 
-Options:
-- `-p, --port PORT`: Port to run the server on [default: 4567]
-- `-h, --host HOST`: Host to bind to [default: localhost]
+The web interface functionality has been moved to a separate gem `smartrails-web` for better modularity.
 
+Install separately:
 ```bash
-# Start web server
-smartrails serve
-
-# Custom port
-smartrails serve --port 8080
+gem install smartrails-web
 ```
+
+Then use:
+```bash
+smartrails-web serve --port 4567
+```
+
+See `/web_gem_extract/` for the extracted web components.
 
 #### `smartrails check:llm`
 Verify LLM connection and configuration.

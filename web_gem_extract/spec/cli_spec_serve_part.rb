@@ -49,4 +49,12 @@ RSpec.describe SmartRails::CLI do
     end
   end
 
+  describe 'serve command' do
+    it 'starts the web server' do
+      # Mock the server to avoid actually starting it
+      allow_any_instance_of(SmartRails::Commands::Serve).to receive(:start_server)
+
+      expect { described_class.start(['serve', '--port', '9999']) }.not_to raise_error
+    end
+  end
 end

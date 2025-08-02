@@ -8,7 +8,6 @@ require 'pathname'
 require_relative 'commands/init'
 require_relative 'commands/audit'
 require_relative 'commands/suggest'
-require_relative 'commands/serve'
 require_relative 'version'
 
 module SmartRails
@@ -43,12 +42,6 @@ module SmartRails
       Commands::Suggest.new(options).execute(source)
     end
 
-    desc 'serve', 'Launch a local web interface to view reports'
-    option :port, aliases: '-p', type: :numeric, default: 4567, desc: 'Port to run the server on'
-    option :host, aliases: '-h', type: :string, default: 'localhost', desc: 'Host to bind to'
-    def serve
-      Commands::Serve.new(options).execute
-    end
 
     desc 'check:llm', 'Check LLM connection'
     def check_llm

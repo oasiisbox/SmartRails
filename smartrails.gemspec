@@ -38,8 +38,6 @@ Gem::Specification.new do |spec|
   # Runtime dependencies
   spec.add_dependency 'bundler', '>= 1.17'
   spec.add_dependency 'colorize', '~> 0.8'
-  spec.add_dependency 'sinatra', '~> 4.1'
-  spec.add_dependency 'puma', '~> 6.0'
   spec.add_dependency 'thor', '~> 1.2'
   spec.add_dependency 'tty-prompt', '~> 0.23'
   spec.add_dependency 'tty-spinner', '~> 0.9'
