@@ -14,7 +14,7 @@ build:
 
 # Security settings
 security:
-  require_signing: false  # Set to true when ready for production
+  require_signing: true  # Production ready
   
 # Publishing settings
 publish:

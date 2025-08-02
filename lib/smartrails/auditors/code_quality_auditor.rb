@@ -33,7 +33,7 @@ module SmartRails
         end
 
         # Check for test files
-        test_files = Dir.glob(project_root.join("{spec,test}/**/*_{spec,test}.rb"))
+        test_files = Dir.glob(project_root.join('{spec,test}/**/*_{spec,test}.rb'))
         if test_files.empty?
           add_issue(
             type: 'Testing',
@@ -44,14 +44,14 @@ module SmartRails
 
         # Check for SimpleCov
         gemfile_content = gemfile_path.read
-        unless gemfile_content.include?('simplecov')
-          add_issue(
-            type: 'Test Coverage',
-            message: 'SimpleCov gem not found - consider adding code coverage tracking',
-            severity: :low,
-            file: 'Gemfile'
-          )
-        end
+        return if gemfile_content.include?('simplecov')
+
+        add_issue(
+          type: 'Test Coverage',
+          message: 'SimpleCov gem not found - consider adding code coverage tracking',
+          severity: :low,
+          file: 'Gemfile'
+        )
       end
 
       def check_linting_configuration
@@ -66,14 +66,14 @@ module SmartRails
         end
 
         # Check if RuboCop is in Gemfile
-        unless gemfile_path.read.include?('rubocop')
-          add_issue(
-            type: 'Code Style',
-            message: 'RuboCop gem not found in Gemfile',
-            severity: :medium,
-            file: 'Gemfile'
-          )
-        end
+        return if gemfile_path.read.include?('rubocop')
+
+        add_issue(
+          type: 'Code Style',
+          message: 'RuboCop gem not found in Gemfile',
+          severity: :medium,
+          file: 'Gemfile'
+        )
       end
 
       def check_code_documentation
@@ -100,14 +100,14 @@ module SmartRails
           comment_lines = content.lines.count { |line| line.strip.start_with?('#') }
           total_lines = content.lines.count
 
-          if comment_lines.to_f / total_lines < 0.05 # Less than 5% comments
-            add_issue(
-              type: 'Documentation',
-              message: 'Insufficient inline documentation',
-              severity: :low,
-              file: file
-            )
-          end
+          next unless comment_lines.to_f / total_lines < 0.05 # Less than 5% comments
+
+          add_issue(
+            type: 'Documentation',
+            message: 'Insufficient inline documentation',
+            severity: :low,
+            file: file
+          )
         end
       end
 
@@ -115,7 +115,7 @@ module SmartRails
         # Check for outdated gems
         if file_exists?('Gemfile.lock')
           lockfile_mtime = File.mtime(project_root.join('Gemfile.lock'))
-          days_old = (Time.now - lockfile_mtime) / 86400
+          days_old = (Time.now - lockfile_mtime) / 86_400
 
           if days_old > 90
             add_issue(
@@ -128,14 +128,14 @@ module SmartRails
         end
 
         # Check for security monitoring
-        unless gemfile_path.read.include?('bundler-audit')
-          add_issue(
-            type: 'Dependencies',
-            message: 'bundler-audit gem not found - consider adding dependency security scanning',
-            severity: :medium,
-            file: 'Gemfile'
-          )
-        end
+        return if gemfile_path.read.include?('bundler-audit')
+
+        add_issue(
+          type: 'Dependencies',
+          message: 'bundler-audit gem not found - consider adding dependency security scanning',
+          severity: :medium,
+          file: 'Gemfile'
+        )
       end
 
       def check_rails_best_practices
@@ -150,22 +150,22 @@ module SmartRails
         end
 
         # Check for proper migrations
-        if project_root.join('db/migrate').exist?
-          migrations = Dir.glob(project_root.join('db/migrate/*.rb'))
-          
-          migrations.each do |migration|
-            content = File.read(migration)
-            
-            # Check for missing indexes on foreign keys
-            if content.include?('references') && !content.include?('index:')
-              add_issue(
-                type: 'Database',
-                message: 'Foreign key without index detected',
-                severity: :medium,
-                file: migration.sub(project_root.to_s + '/', '')
-              )
-            end
-          end
+        return unless project_root.join('db/migrate').exist?
+
+        migrations = Dir.glob(project_root.join('db/migrate/*.rb'))
+
+        migrations.each do |migration|
+          content = File.read(migration)
+
+          # Check for missing indexes on foreign keys
+          next unless content.include?('references') && !content.include?('index:')
+
+          add_issue(
+            type: 'Database',
+            message: 'Foreign key without index detected',
+            severity: :medium,
+            file: migration.sub(project_root.to_s + '/', '')
+          )
         end
       end
 
@@ -178,7 +178,7 @@ module SmartRails
         indexes = schema_file.scan(/add_index.*?"(\w+_id)"/)
 
         missing_indexes = foreign_keys.flatten - indexes.flatten
-        
+
         missing_indexes.each do |column|
           add_issue(
             type: 'Database Performance',

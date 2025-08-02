@@ -59,9 +59,9 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
 6. Update documentation if needed
 
-7. Commit your changes using a descriptive commit message:
+7. Commit your changes using a descriptive commit message with DCO sign-off:
    ```bash
-   git commit -m 'Add some amazing feature'
+   git commit -s -m 'Add some amazing feature'
    ```
 
 8. Push to your fork:
@@ -151,12 +151,29 @@ end
 - Include examples in your documentation
 - Keep documentation up to date with code changes
 
+## Developer Certificate of Origin (DCO) & Sign-off
+
+All commits must include a "sign-off" attestating that you have the right to contribute and that your code respects the project license.
+
+- **From Git**: Use `git commit -s` to automatically sign your commits
+- **From GitHub web interface**: Check "Sign off on this commit"
+
+Example sign-off line:
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+By signing off, you certify that you have read and agree to the Developer Certificate of Origin (DCO) found in the [DCO.txt](DCO.txt) file.
+
+**Important**: All contributions without proper DCO sign-off will be rejected.
+
 ### Commit Messages
 
 - Use the present tense ("Add feature" not "Added feature")
 - Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
 - Limit the first line to 72 characters or less
 - Reference issues and pull requests liberally after the first line
+- **Always include DCO sign-off** using `git commit -s`
 
 ## Creating New Auditors
 

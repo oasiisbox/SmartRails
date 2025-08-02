@@ -8,7 +8,7 @@ RSpec::Core::RakeTask.new(:spec)
 RuboCop::RakeTask.new
 
 desc 'Run all quality checks'
-task quality: %i[rubocop spec]
+task quality: [:rubocop, :spec]
 
 task default: :quality
 
@@ -17,7 +17,7 @@ task :console do
   require 'irb'
   require 'irb/completion'
   require 'smartrails'
-  
+
   ARGV.clear
   IRB.start
 end

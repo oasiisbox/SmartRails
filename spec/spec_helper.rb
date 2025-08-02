@@ -8,12 +8,12 @@ SimpleCov.start do
   add_filter '/spec/'
   add_filter '/vendor/'
   add_filter '/bin/'
-  
+
   add_group 'Auditors', 'lib/smartrails/auditors'
   add_group 'Commands', 'lib/smartrails/commands'
   add_group 'Reporters', 'lib/smartrails/reporters'
   add_group 'Suggestors', 'lib/smartrails/suggestors'
-  
+
   minimum_coverage 85
 end
 
@@ -45,11 +45,9 @@ RSpec.configure do |config|
   config.formatter = :documentation if ENV['VERBOSE']
 
   # Clean up temporary files after each test
-  config.after(:each) do
+  config.after do
     # Clean up any temporary directories created during tests
-    if defined?(@temp_dir) && @temp_dir && Dir.exist?(@temp_dir)
-      FileUtils.rm_rf(@temp_dir)
-    end
+    FileUtils.rm_rf(@temp_dir) if defined?(@temp_dir) && @temp_dir && Dir.exist?(@temp_dir)
   end
 
   # Shared context for creating temporary Rails project structures

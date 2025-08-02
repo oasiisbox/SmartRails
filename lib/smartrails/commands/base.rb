@@ -37,6 +37,7 @@ module SmartRails
 
       def load_config
         return {} unless project_initialized?
+
         JSON.parse(config_file.read)
       rescue JSON::ParserError
         {}

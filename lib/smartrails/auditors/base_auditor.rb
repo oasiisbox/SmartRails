@@ -15,7 +15,7 @@ module SmartRails
       end
 
       def run
-        raise NotImplementedError, "Subclasses must implement the run method"
+        raise NotImplementedError, 'Subclasses must implement the run method'
       end
 
       protected
@@ -55,6 +55,7 @@ module SmartRails
       def read_file(path)
         full_path = project_root.join(path)
         return nil unless full_path.exist?
+
         full_path.read
       end
     end

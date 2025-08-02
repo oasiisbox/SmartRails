@@ -18,9 +18,9 @@ module SmartRails
           response = suggestor.suggest(content)
           save_suggestion(response)
           display_suggestion(response)
-        rescue => e
+        rescue StandardError => e
           say "❌ Error: #{e.message}", :red
-          say "💡 Make sure the LLM service is running and configured correctly", :yellow
+          say '💡 Make sure the LLM service is running and configured correctly', :yellow
         end
       end
 
@@ -30,11 +30,11 @@ module SmartRails
 
         begin
           if suggestor.check_connection
-            say "✅ Connection successful!", :green
+            say '✅ Connection successful!', :green
           else
-            say "❌ Connection failed", :red
+            say '❌ Connection failed', :red
           end
-        rescue => e
+        rescue StandardError => e
           say "❌ Error: #{e.message}", :red
         end
       end
@@ -57,7 +57,7 @@ module SmartRails
             say "📊 Using latest audit report: #{File.basename(latest_report)}", :blue
             File.read(latest_report)
           else
-            say "❌ Please provide content, use --file, or run an audit first", :red
+            say '❌ Please provide content, use --file, or run an audit first', :red
             nil
           end
         end
@@ -74,11 +74,11 @@ module SmartRails
 
       def save_suggestion(response)
         timestamp = Time.now.to_i
-        
+
         # Save as text
         text_file = reports_dir.join("suggestion_#{timestamp}.txt")
         text_file.write(response)
-        
+
         # Save as markdown
         md_file = reports_dir.join("suggestion_#{timestamp}.md")
         md_content = "# AI Suggestion Report\n\n"
@@ -90,9 +90,9 @@ module SmartRails
 
       def display_suggestion(response)
         say "\n🧠 AI Suggestion:", :green
-        say "─" * 50, :blue
+        say '─' * 50, :blue
         say response
-        say "─" * 50, :blue
+        say '─' * 50, :blue
       end
     end
   end

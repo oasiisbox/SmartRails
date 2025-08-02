@@ -15,11 +15,10 @@ RSpec.describe SmartRails::Auditors::SecurityAuditor do
 
         issues = auditor.run
 
-        expect_issue(issues, 
-          type: 'CSRF Protection', 
-          severity: :high,
-          file: 'application_controller.rb'
-        )
+        expect_issue(issues,
+                     type: 'CSRF Protection',
+                     severity: :high,
+                     file: 'application_controller.rb')
       end
 
       it 'passes when CSRF protection is enabled' do
@@ -48,10 +47,9 @@ RSpec.describe SmartRails::Auditors::SecurityAuditor do
         issues = auditor.run
 
         expect_issue(issues,
-          type: 'SQL Injection Risk',
-          severity: :critical,
-          file: 'users_controller.rb'
-        )
+                     type: 'SQL Injection Risk',
+                     severity: :critical,
+                     file: 'users_controller.rb')
       end
 
       it 'passes when using safe parameterized queries' do
@@ -75,7 +73,7 @@ RSpec.describe SmartRails::Auditors::SecurityAuditor do
           class ApiController < ApplicationController
             API_KEY = "sk-1234567890abcdef"
             SECRET_TOKEN = "abc123def456"
-            
+          #{'  '}
             def authenticate
               # Using hardcoded secrets
             end
@@ -85,10 +83,9 @@ RSpec.describe SmartRails::Auditors::SecurityAuditor do
         issues = auditor.run
 
         expect_issue(issues,
-          type: 'Hardcoded Secret',
-          severity: :critical,
-          file: 'api_controller.rb'
-        )
+                     type: 'Hardcoded Secret',
+                     severity: :critical,
+                     file: 'api_controller.rb')
       end
 
       it 'passes when using environment variables' do
@@ -120,10 +117,9 @@ RSpec.describe SmartRails::Auditors::SecurityAuditor do
         issues = auditor.run
 
         expect_issue(issues,
-          type: 'Missing Strong Parameters',
-          severity: :high,
-          file: 'users_controller.rb'
-        )
+                     type: 'Missing Strong Parameters',
+                     severity: :high,
+                     file: 'users_controller.rb')
       end
 
       it 'passes when strong parameters are used' do
@@ -132,9 +128,9 @@ RSpec.describe SmartRails::Auditors::SecurityAuditor do
             def create
               @user = User.new(user_params)
             end
-            
+          #{'  '}
             private
-            
+          #{'  '}
             def user_params
               params.require(:user).permit(:name, :email)
             end
@@ -159,10 +155,9 @@ RSpec.describe SmartRails::Auditors::SecurityAuditor do
         issues = auditor.run
 
         expect_issue(issues,
-          type: 'SSL Configuration',
-          severity: :medium,
-          file: 'production.rb'
-        )
+                     type: 'SSL Configuration',
+                     severity: :medium,
+                     file: 'production.rb')
       end
 
       it 'passes when force_ssl is enabled' do
@@ -188,12 +183,12 @@ RSpec.describe SmartRails::Auditors::SecurityAuditor do
 
       issues = auditor.run
       csrf_issue = expect_issue(issues, type: 'CSRF Protection')
-      
+
       expect(csrf_issue[:auto_fixable]).to be true
-      
+
       # Apply auto-fix
       csrf_issue[:auto_fix].call
-      
+
       # Verify fix was applied
       content = File.read(controller_file)
       expect(content).to include('protect_from_forgery')
