@@ -1,0 +1,21 @@
+# Gem configuration for SmartRails
+# This file contains settings for gem building and publishing
+
+# Build settings
+build:
+  exclude_patterns:
+    - "spec/**/*"
+    - "*.tmp"
+    - ".git/**/*"
+    - "tmp/**/*"
+    - "coverage/**/*"
+    - ".simplecov"
+    - ".rspec_status"
+
+# Security settings
+security:
+  require_signing: false  # Set to true when ready for production
+  
+# Publishing settings
+publish:
+  allowed_push_host: "https://rubygems.org"

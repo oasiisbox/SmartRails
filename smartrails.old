@@ -1,0 +1,352 @@
+#!/usr/bin/env ruby
+# smartrails: Starter Kit CLI Ruby (v0.2.0) avec mode interactif, correcteurs automatiques, mode non-interactif, et export HTML
+
+require 'thor'
+require 'json'
+require 'fileutils'
+require 'shellwords'
+
+module SmartRails
+  class CLI < Thor
+    class_option :auto, type: :boolean, default: false, desc: "Lancer l'audit sans interaction utilisateur"
+
+    desc "init PROJECT_NAME", "Initialise un projet SmartRails"
+    def init(project_name)
+      say("\n🚀 Initialisation de SmartRails pour : #{project_name}\n", :green)
+
+      FileUtils.mkdir_p(project_name)
+      Dir.chdir(project_name) do
+        File.write(".smartconfig.json", JSON.pretty_generate({
+          name: project_name,
+          created_at: Time.now,
+          version: '0.2.0',
+          features: []
+        }))
+
+        FileUtils.mkdir_p("logs")
+        FileUtils.mkdir_p("reports")
+        FileUtils.mkdir_p("agents")
+        say("\n📁 Structure créée avec succès !\n", :blue)
+      end
+    end
+
+    desc "audit", "Lance un audit interactif (ou automatique) du projet courant"
+    def audit
+      unless File.exist?(".smartconfig.json")
+        say("❌ Projet non initialisé. Lance 'smartrails init NOM'", :red)
+        return
+      end
+
+      say("🔍 Audit en cours...\n", :yellow)
+      issues = [
+        { type: "CSRF", message: "Protection CSRF absente dans ApplicationController", auto_fix: method(:fix_csrf) },
+        { type: "Tests", message: "Aucun test trouvé dans spec/", auto_fix: nil }
+      ]
+
+      issues.each do |issue|
+        say("\n🚨 [#{issue[:type]}] #{issue[:message]}", :red)
+        if options[:auto]
+          if issue[:auto_fix]
+            issue[:auto_fix].call
+            say("✅ Correction automatique appliquée.", :green)
+          else
+            say("⚠️ Aucune correction automatique disponible.", :black)
+          end
+        else
+          response = ask("Souhaites-tu corriger ce problème maintenant ? (o/N)", :yellow)
+          if response.downcase == 'o'
+            if issue[:auto_fix]
+              issue[:auto_fix].call
+              say("✅ Correction appliquée automatiquement.", :green)
+            else
+              say("👉 Action à effectuer (manuel pour le moment) : #{issue[:message]}", :green)
+            end
+          else
+            say("⚠️ Ignoré pour l’instant.", :black)
+          end
+        end
+      end
+
+      timestamp = Time.now
+      report_file = "reports/audit_#{timestamp.to_i}.json"
+      File.write(report_file, JSON.pretty_generate({
+        summary: "Audit terminé",
+        issues: issues.map { |i| { type: i[:type], message: i[:message] } },
+        timestamp: timestamp
+      }))
+
+      generate_html_report(report_file)
+
+      say("\n✅ Rapport JSON sauvegardé dans 'reports/'.\n", :green)
+      say("📄 Rapport HTML généré dans 'reports/report_latest.html'\n", :cyan)
+    end
+
+    desc "version", "Affiche la version de SmartRails"
+    def version
+      say("SmartRails CLI v0.2.0", :blue)
+    end
+
+    desc "suggest [SOURCE]", "Utilise un LLM local (Ollama) ou distant (OpenAI/Mistral) pour générer des suggestions à partir d'un fichier ou d'un message"
+    method_option :file, aliases: "-f", type: :string, desc: "Chemin vers un fichier à analyser"
+    method_option :llm, aliases: "-l", type: :string, default: "ollama", desc: "Modèle LLM à utiliser (ollama, openai, mistral)"
+    def suggest(source = nil)
+      content = if options[:file]
+        File.read(options[:file])
+      elsif source
+        source
+      else
+        say("❌ Veuillez fournir un texte ou un fichier avec --file", :red)
+        return
+      end
+
+      model = options[:llm]
+      say("💬 Envoi de la suggestion au modèle '#{model}'...", :yellow)
+
+      prompt = "Voici un extrait de code ou un rapport :
+#{content}
+
+Propose des corrections, optimisations ou alertes de sécurité.".strip
+
+      case model
+      when "ollama"
+        require 'net/http'
+        require 'uri'
+
+        model_name = ENV['OLLAMA_MODEL'] || 'llama3'
+        uri = URI.parse("http://localhost:11434/api/generate")
+        headers = { 'Content-Type' => 'application/json' }
+        body = {
+          model: model_name,
+          prompt: prompt,
+          stream: false
+        }
+
+        begin
+          http = Net::HTTP.new(uri.host, uri.port)
+          request = Net::HTTP::Post.new(uri.request_uri, headers)
+          request.body = body.to_json
+          response = http.request(request)
+          json = JSON.parse(response.body)
+          result = json["response"] || json["message"] || json["content"] || "(Aucune réponse générée par le modèle)"
+          timestamp = Time.now.to_i
+          File.write("reports/response_#{timestamp}.txt", result)
+          File.write("reports/response_#{timestamp}.md", "### Réponse du modèle local (#{model_name})
+
+#{result}")
+          say("
+🧠 Réponse du modèle local (#{model_name}):
+#{result}", :green)
+        rescue => e
+          say("❌ Erreur lors de la requête au modèle Ollama : #{e.message}", :red)
+        end
+
+      when "openai"
+        require 'net/http'; require 'uri'; require 'json'
+        uri = URI.parse("https://api.openai.com/v1/chat/completions")
+        req = Net::HTTP::Post.new(uri)
+        req["Authorization"] = "Bearer #{ENV['OPENAI_API_KEY']}"
+        req["Content-Type"] = "application/json"
+        req.body = JSON.dump({
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: "Tu es un assistant Ruby on Rails." },
+            { role: "user", content: prompt }
+          ]
+        })
+
+        res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) { |http| http.request(req) }
+        json = JSON.parse(res.body)
+        response_content = json['choices'][0]['message']['content']
+        timestamp = Time.now.to_i
+        File.write("reports/response_#{timestamp}.txt", response_content)
+        File.write("reports/response_#{timestamp}.md", "### Réponse du modèle OpenAI
+
+#{response_content}")
+        say("
+🧠 Réponse OpenAI :
+#{response_content}", :green)
+      else
+        say("❌ Modèle non reconnu : #{model}", :red)
+      end
+    end
+
+    map "suggest:latest" => :suggest_latest
+
+    desc "check:llm", "Vérifie la connexion au modèle LLM local (Ollama)"
+    def check_llm
+      require 'net/http'
+      require 'uri'
+      require 'json'
+
+      uri = URI.parse("http://localhost:11434/api/generate")
+      headers = { 'Content-Type' => 'application/json' }
+      body = {
+        model: ENV['OLLAMA_MODEL'] || 'llama3',
+        prompt: 'dis bonjour',
+        stream: false
+      }
+
+      say("🔌 Vérification de la connexion au modèle LLM local...", :yellow)
+
+      begin
+        http = Net::HTTP.new(uri.host, uri.port)
+        request = Net::HTTP::Post.new(uri.request_uri, headers)
+        request.body = body.to_json
+        response = http.request(request)
+
+        if response.code.to_i == 200 && JSON.parse(response.body)["response"]&.strip != ""
+          say("✅ Le modèle LLM local a répondu correctement.", :green)
+          say("🧠 Réponse: #{JSON.parse(response.body)["response"]}", :blue)
+        else
+          say("⚠️ Le modèle a répondu mais sans contenu exploitable.", :red)
+          say("🛠 Vérifie que le modèle est bien chargé avec \"ollama run llama3\".", :yellow)
+        end
+      rescue => e
+        say("❌ Erreur de connexion au serveur Ollama : #{e.message}", :red)
+        say("📌 Assure-toi que le conteneur est lancé sur le port 11434 et que le modèle est disponible.", :yellow)
+      end
+    end
+    desc "suggest:latest", "Utilise le dernier rapport d’audit pour générer une suggestion IA"
+    def suggest_latest
+  latest = Dir.glob("reports/audit_*.json").max_by { |f| File.mtime(f) }
+  if latest
+    invoke :suggest, [], { file: latest }
+  else
+    say("❌ Aucun rapport d’audit trouvé.", :red)
+  end
+end
+
+desc "serve", "Lance une interface web locale pour visualiser les rapports et exporter en PDF"
+    def serve
+      require 'sinatra'
+      require 'webrick'
+      require 'webrick/https'
+      require 'fileutils'
+      require 'open3'
+
+      root = File.expand_path(".")
+      reports_path = File.join(root, "reports")
+
+      Thread.new do
+        Sinatra::Application.set :bind, '0.0.0.0'
+        Sinatra::Application.set :port, 4567
+
+        Sinatra::Application.get '/' do
+          files = Dir.glob(File.join(reports_path, 'audit_*.json')).sort_by { |f| File.mtime(f) }.reverse
+          html_files = Dir.glob(File.join(reports_path, 'report_*.html')).sort_by { |f| File.mtime(f) }.reverse
+          <<~HTML
+            <!DOCTYPE html>
+            <html lang=\"fr\">
+            <head>
+              <meta charset=\"UTF-8\">
+              <title>Rapports SmartRails</title>
+              <style>
+                body { font-family: sans-serif; padding: 2em; background: #f9f9f9; }
+                h1 { color: #2c3e50; }
+                ul { list-style: none; padding: 0; }
+                li { margin-bottom: 0.5em; }
+                a { text-decoration: none; color: #2980b9; }
+              </style>
+            </head>
+            <body>
+              <h1>📂 Rapports SmartRails</h1>
+              <h2>Rapports HTML</h2>
+              <ul>
+                #{html_files.map { |f| "<li><a href='/report/#{File.basename(f)}'>#{File.basename(f)}</a> – <a href='/pdf/#{File.basename(f)}'>🖨 Export PDF</a></li>" }.join}
+              </ul>
+              <h2>Fichiers JSON</h2>
+              <ul>
+                #{files.map { |f| "<li><a href='/report/#{File.basename(f)}'>#{File.basename(f)}</a></li>" }.join}
+              </ul>
+            </body>
+            </html>
+          HTML
+        end
+
+        Sinatra::Application.get '/report/:filename' do |filename|
+          file_path = File.join(reports_path, filename)
+          if File.exist?(file_path)
+            send_file(file_path)
+          else
+            halt 404, "Rapport introuvable"
+          end
+        end
+
+        Sinatra::Application.get '/pdf/:filename' do |filename|
+          html_path = File.join(reports_path, filename)
+          pdf_path = html_path.sub(/\.html$/, '.pdf')
+          if File.exist?(html_path)
+            system("wkhtmltopdf", html_path, pdf_path)
+            send_file(pdf_path)
+          else
+            halt 404, "Fichier HTML introuvable pour conversion"
+          end
+        end
+
+        Sinatra::Application.set :views, File.dirname(__FILE__)
+        Sinatra::Application.run!
+      end
+
+      puts "🌐 Interface web en cours d'exécution : http://localhost:4567"
+      puts "📄 Visualise les rapports et exporte en PDF avec un clic."
+      sleep
+    end
+
+    no_commands do
+      def fix_csrf
+        file = "app/controllers/application_controller.rb"
+        return unless File.exist?(file)
+
+        content = File.read(file)
+        unless content.include?("protect_from_forgery")
+          content.sub!(/class ApplicationController.*?\n/, "\\0  protect_from_forgery with: :exception\n")
+          File.write(file, content)
+        end
+      end
+
+      def generate_html_report(json_file)
+        data = JSON.parse(File.read(json_file))
+        html = <<~HTML
+        <!DOCTYPE html>
+        <html lang="fr">
+        <head>
+          <meta charset="UTF-8">
+          <title>Rapport d'audit SmartRails</title>
+          <style>
+            body { font-family: sans-serif; margin: 2em; }
+            h1 { color: #333; }
+            .issue { margin-bottom: 1em; }
+            .type { font-weight: bold; color: #b00; }
+          </style>
+        </head>
+        <body>
+          <h1>Rapport d'audit SmartRails</h1>
+          <p><strong>Date:</strong> #{data["timestamp"]}</p>
+          <h2>Problèmes détectés</h2>
+          <ul>
+        HTML
+
+        data["issues"].each do |issue|
+          html += "<li class=\"issue\"><span class=\"type\">[#{issue["type"]}]</span> #{issue["message"]}</li>"
+        end
+
+        html += <<~HTML
+
+          </ul>
+        </body>
+        </html>
+        HTML
+
+        if File.exist?("reports/response_#{data['timestamp'].to_i}.md")
+  html += "<h2>Suggestions IA</h2><pre style=\"background:#f4f4f4;padding:1em;\">"
+  html += File.read("reports/response_#{data['timestamp'].to_i}.md")
+  html += "</pre>"
+end
+
+        File.write("reports/report_latest.html", html)
+      end
+    end
+  end
+end
+
+SmartRails::CLI.start(ARGV)
