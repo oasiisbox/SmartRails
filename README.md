@@ -337,21 +337,32 @@ bundle exec rake quality
 bundle exec rake build
 ```
 
+## 🏛️ Governance
+
+This project is maintained by **OASIISBOX**. For detailed governance information, see [GOVERNANCE.md](GOVERNANCE.md).
+
+- **Maintainer**: OASIISBOX.SmartRailsDEV
+- **Contribution Review**: All contributions require maintainer approval
+- **Merge Authority**: Only official maintainers can merge PRs or publish releases
+- **Final Authority**: All project decisions are subject to maintainer review and approval
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
-**Important**: All contributions must include a Developer Certificate of Origin (DCO) sign-off.
+**Important**: All contributions must include a Developer Certificate of Origin (DCO) sign-off and will be reviewed by our maintainers before integration.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes with DCO sign-off (`git commit -s -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+5. Open a Pull Request (subject to maintainer review)
 
 ### Developer Certificate of Origin
 
 By contributing to this project, you certify that you have the right to submit your work under the project's open source license. All commits must include a `Signed-off-by` line with your real name and email address.
+
+**Note**: Acceptance of contributions is at the sole discretion of the project maintainers.
 
 ## 📝 License
 

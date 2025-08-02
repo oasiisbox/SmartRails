@@ -1,0 +1,40 @@
+# SmartRails Code Owners
+# 
+# This file defines who must review and approve changes to specific files
+# and directories in the SmartRails repository.
+#
+# OASIISBOX maintains ownership and final authority over this project.
+
+# Global ownership - OASIISBOX team owns everything by default
+* @OASIISBOX
+
+# Core library files require maintainer approval
+/lib/ @OASIISBOX
+/bin/ @OASIISBOX
+
+# Configuration files
+/.github/ @OASIISBOX
+/.rubocop.yml @OASIISBOX
+/Gemfile @OASIISBOX
+/smartrails.gemspec @OASIISBOX
+/Rakefile @OASIISBOX
+
+# Documentation and governance
+/README.md @OASIISBOX
+/CONTRIBUTING.md @OASIISBOX
+/GOVERNANCE.md @OASIISBOX
+/CHANGELOG.md @OASIISBOX
+/LICENSE @OASIISBOX
+/SECURITY.md @OASIISBOX
+/DCO.txt @OASIISBOX
+
+# Version and release management
+/lib/smartrails/version.rb @OASIISBOX
+
+# Test configuration
+/spec/ @OASIISBOX
+/.rspec @OASIISBOX
+
+# Build and packaging
+/.gem_config @OASIISBOX
+/.ruby-version @OASIISBOX

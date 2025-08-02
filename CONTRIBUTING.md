@@ -2,6 +2,16 @@
 
 First off, thank you for considering contributing to SmartRails! It's people like you that make SmartRails such a great tool for the Rails community.
 
+## Project Governance
+
+**SmartRails is maintained by OASIISBOX**. Please read our [Governance Policy](GOVERNANCE.md) for complete details.
+
+### Important Notes:
+- All contributions require review and approval by project maintainers
+- Only official maintainers can merge Pull Requests or publish releases
+- Final decisions on features, changes, and project direction rest with OASIISBOX
+- Community input is valued but maintainer approval is required for integration
+
 ## Code of Conduct
 
 By participating in this project, you are expected to uphold our Code of Conduct:
