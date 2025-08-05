@@ -14,10 +14,13 @@ SmartRails is a professional CLI tool for Ruby on Rails applications that provid
 - **📊 Code Quality Analysis**: Identifies code smells, missing tests, and Rails best practices violations
 - **⚡ Performance Auditing**: Detects N+1 queries, missing indexes, caching issues, and asset optimization problems
 - **🤖 AI-Powered Suggestions**: Integrates with Ollama, OpenAI, and other LLMs for intelligent code improvement suggestions
-- **🔧 Auto-Fix Capabilities**: Automatically fixes common issues with a single command
+- **🔧 Auto-Fix Capabilities**: Automatically fixes common issues with triple security architecture (snapshot → apply → validate → rollback)
+- **🛡️ Triple Security Architecture**: Safe automatic fixes with Git branching, snapshots, and rollback capabilities
+- **🔍 Dry-Run Mode**: Preview changes before applying fixes
 - **📈 Beautiful Reports**: Generates detailed HTML and JSON reports with actionable insights
 - **🌐 Web Interface**: Available as separate `smartrails-web` gem for modular architecture
 - **🎨 Customizable**: Extensible architecture for adding custom auditors and rules
+- **⚡ High Performance**: Parallel processing and comprehensive test coverage (90%+)
 
 ## 📦 Installation
 
@@ -65,10 +68,17 @@ smartrails init my_project
 smartrails audit
 ```
 
-### Run audit with automatic fixes
+### Apply automatic fixes safely
 
 ```bash
-smartrails audit --auto
+# Preview fixes without applying (dry-run mode)
+smartrails fix --dry-run
+
+# Apply only safe fixes automatically
+smartrails fix --level safe --auto-apply-safe
+
+# Apply all fixes with confirmation prompts
+smartrails fix --level risky
 ```
 
 ### View reports in web interface *(Requires smartrails-web gem)*
@@ -97,19 +107,57 @@ smartrails init my_app
 Run a comprehensive audit of your Rails application.
 
 Options:
-- `--auto`: Run audit without user interaction
-- `--fix`: Automatically fix issues when possible
-- `--format FORMAT`: Output format (json, html) [default: json]
+- `--only PHASES`: Run only specific phases (security, quality, database, performance, cleanup)
+- `--skip PHASES`: Skip specific phases
+- `--format FORMATS`: Output formats (json, html, markdown, badge, ci, sarif) [default: json]
+- `--output DIR`: Output directory for reports
+- `--ai`: Enable AI analysis and recommendations [default: true]
+- `--interactive`: Interactive mode with confirmations [default: true]
 
 ```bash
 # Interactive audit
 smartrails audit
 
-# Automatic audit with fixes
-smartrails audit --auto --fix
+# Security-only audit
+smartrails audit --only security
 
-# Generate HTML report
-smartrails audit --format html
+# Generate multiple report formats
+smartrails audit --format json,html,markdown
+
+# CI/CD mode with SARIF output
+smartrails audit --format ci,sarif --interactive false
+```
+
+#### `smartrails fix [OPTIONS]`
+Apply automatic fixes to detected issues with triple security architecture.
+
+Safety levels:
+- `safe`: Apply only safe, non-breaking fixes automatically
+- `risky`: Apply all fixes with confirmation prompts
+- `all`: Apply all auto-fixable issues (dangerous!)
+
+Options:
+- `--level LEVEL`: Safety level (safe, risky, all) [default: safe]
+- `--dry-run`: Preview changes without applying
+- `--rollback SNAPSHOT_ID`: Rollback to specific snapshot ID
+- `--list-snapshots`: List available snapshots
+- `--auto-apply-safe`: Auto-apply safe fixes without confirmation
+
+```bash
+# Preview fixes (dry-run mode)
+smartrails fix --dry-run
+
+# Apply safe fixes automatically
+smartrails fix --level safe --auto-apply-safe
+
+# Apply all fixes with prompts
+smartrails fix --level risky
+
+# List available snapshots for rollback
+smartrails fix --list-snapshots
+
+# Rollback to specific snapshot
+smartrails fix --rollback snapshot_abc123
 ```
 
 #### `smartrails suggest [SOURCE] [OPTIONS]`
@@ -117,18 +165,44 @@ Get AI-powered suggestions for code improvements.
 
 Options:
 - `-f, --file FILE`: Path to file to analyze
-- `-l, --llm MODEL`: LLM model to use (ollama, openai, mistral) [default: ollama]
+- `-a, --audit-results FILE`: Path to audit results JSON file
+- `-l, --llm MODEL`: LLM provider (ollama, openai, claude, mistral) [default: ollama]
 - `-m, --model NAME`: Specific model name to use
+- `--stream`: Stream response in real-time [default: true]
 
 ```bash
 # Analyze a specific file
 smartrails suggest --file app/controllers/users_controller.rb
 
 # Use latest audit report
-smartrails suggest
+smartrails suggest --audit-results tmp/smartrails_reports/smartrails_audit.json
 
-# Use OpenAI GPT-4
-smartrails suggest --llm openai --model gpt-4
+# Use Claude with streaming
+smartrails suggest --llm claude --model claude-3-sonnet --stream
+
+# Ask a specific question
+smartrails suggest "How to improve security in Rails?"
+```
+
+#### `smartrails badge [OPTIONS]`
+Generate and manage SmartRails quality badges.
+
+Badge levels: Platinum (95%+), Gold (85%+), Silver (75%+), Bronze (65%+), Certified (50%+)
+
+Options:
+- `--update-readme`: Automatically update README with badge
+- `--format FORMAT`: Badge format (markdown, html, svg) [default: markdown]
+- `--audit-file FILE`: Path to audit results file
+
+```bash
+# Generate badge for latest audit
+smartrails badge
+
+# Update README automatically
+smartrails badge --update-readme
+
+# Generate SVG badge
+smartrails badge --format svg
 ```
 
 #### `smartrails serve` *(Moved to separate gem)*
@@ -152,6 +226,57 @@ Verify LLM connection and configuration.
 
 ```bash
 smartrails check:llm
+```
+
+## 🛡️ Triple Security Architecture
+
+SmartRails implements a comprehensive triple security architecture for safe automatic fixes:
+
+### 1. **Snapshot Creation** 📸
+Before applying any fixes, SmartRails creates a complete snapshot of your project state:
+- File system snapshot with timestamps
+- Git commit hash recording
+- Project integrity checksum
+
+### 2. **Safe Application** ⚡
+Fixes are applied using a sophisticated safety system:
+- **Safe Fixes**: RuboCop style issues, whitespace, formatting - applied automatically
+- **Risky Fixes**: Security issues, dependency updates - require user confirmation
+- **Git Branching**: Each fix session creates a dedicated Git branch
+- **Parallel Processing**: Multiple fixes applied efficiently
+
+### 3. **Validation & Rollback** ✅
+Every fix is validated before being made permanent:
+- **Syntax Validation**: Ruby syntax checking
+- **Rails Application Validation**: Ensures Rails app still boots
+- **Test Suite Validation**: Critical tests must pass (if available)
+- **Automatic Rollback**: Failed fixes are automatically reverted
+- **Manual Rollback**: Use `--rollback` to restore any previous snapshot
+
+```bash
+# Example workflow
+smartrails audit                           # Discover issues
+smartrails fix --dry-run                   # Preview fixes
+smartrails fix --level safe                # Apply safe fixes with confirmation
+smartrails fix --list-snapshots           # View available rollback points
+smartrails fix --rollback snapshot_abc123  # Rollback if needed
+```
+
+### Rollback Capabilities
+```bash
+# List all available snapshots
+smartrails fix --list-snapshots
+
+# Rollback to specific snapshot
+smartrails fix --rollback snapshot_20240101_143022
+
+# Example output:
+# 📸 Available Snapshots
+# 1. snapshot_20240101_143022
+#    Description: Before applying RuboCop fixes
+#    Created: 2024-01-01 14:30:22
+#    Files: 127
+#    Git Commit: a1b2c3d
 ```
 
 ## 🔍 What SmartRails Audits
