@@ -17,3 +17,5 @@ group :development, :test do
   gem 'simplecov', '~> 0.22'
   gem 'yard', '~> 0.9'
 end
+
+gem "fast-mcp", "~> 1.5"
