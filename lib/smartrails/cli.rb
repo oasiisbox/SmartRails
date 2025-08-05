@@ -12,7 +12,7 @@ require_relative 'commands/audit'
 require_relative 'commands/suggest'
 require_relative 'commands/fix'
 require_relative 'commands/badge'
-require_relative 'commands/report'
+# require_relative 'commands/report' # TODO: Implement report command
 require_relative 'version'
 
 module SmartRails
@@ -112,43 +112,45 @@ module SmartRails
       Commands::Badge.new(options.merge(global_options)).execute
     end
 
-    desc 'report', 'Generate detailed reports from audit results'
-    option :input, aliases: '-i', type: :string, required: true, desc: 'Input audit results file'
-    option :format, type: :array, default: ['html'], desc: 'Output formats'
-    option :output, aliases: '-o', type: :string, desc: 'Output directory'
-    option :open, type: :boolean, default: false, desc: 'Open report in browser'
-    def report
-      Commands::Report.new(options.merge(global_options)).execute
-    end
+    # TODO: Implement report command
+    # desc 'report', 'Generate detailed reports from audit results'
+    # option :input, aliases: '-i', type: :string, required: true, desc: 'Input audit results file'
+    # option :format, type: :array, default: ['html'], desc: 'Output formats'
+    # option :output, aliases: '-o', type: :string, desc: 'Output directory'
+    # option :open, type: :boolean, default: false, desc: 'Open report in browser'
+    # def report
+    #   Commands::Report.new(options.merge(global_options)).execute
+    # end
 
-    desc 'check', 'Check system requirements and tool availability'
-    option :tools, type: :boolean, default: false, desc: 'Check available audit tools'
-    option :ai, type: :boolean, default: false, desc: 'Check AI/LLM connectivity'
-    option :all, type: :boolean, default: false, desc: 'Check everything'
-    def check
-      Commands::Check.new(options.merge(global_options)).execute
-    end
+    # TODO: Implement check and config commands
+    # desc 'check', 'Check system requirements and tool availability'
+    # option :tools, type: :boolean, default: false, desc: 'Check available audit tools'
+    # option :ai, type: :boolean, default: false, desc: 'Check AI/LLM connectivity'
+    # option :all, type: :boolean, default: false, desc: 'Check everything'
+    # def check
+    #   Commands::Check.new(options.merge(global_options)).execute
+    # end
 
-    desc 'config', 'Manage SmartRails configuration'
-    option :show, type: :boolean, default: false, desc: 'Show current configuration'
-    option :reset, type: :boolean, default: false, desc: 'Reset to default configuration'
-    option :set, type: :hash, desc: 'Set configuration values (key:value)'
-    def config
-      Commands::Config.new(options.merge(global_options)).execute
-    end
+    # desc 'config', 'Manage SmartRails configuration'
+    # option :show, type: :boolean, default: false, desc: 'Show current configuration'
+    # option :reset, type: :boolean, default: false, desc: 'Reset to default configuration'
+    # option :set, type: :hash, desc: 'Set configuration values (key:value)'
+    # def config
+    #   Commands::Config.new(options.merge(global_options)).execute
+    # end
 
-    # Subcommands for advanced features
-    desc 'ci', 'CI/CD integration commands'
-    subcommand 'ci', Commands::CI
+    # TODO: Implement advanced subcommands
+    # desc 'ci', 'CI/CD integration commands'
+    # subcommand 'ci', Commands::CI
 
-    desc 'web', 'Web interface commands'
-    subcommand 'web', Commands::Web
+    # desc 'web', 'Web interface commands'
+    # subcommand 'web', Commands::Web
 
-    # Legacy aliases for backward compatibility
-    desc 'check:llm', 'Check LLM connection (legacy alias)'
-    def check_llm
-      invoke :check, [], { ai: true }
-    end
+    # TODO: Legacy aliases for backward compatibility
+    # desc 'check:llm', 'Check LLM connection (legacy alias)'
+    # def check_llm
+    #   invoke :check, [], { ai: true }
+    # end
 
     # Hidden development commands
     private

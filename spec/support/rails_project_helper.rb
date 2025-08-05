@@ -2,6 +2,10 @@
 
 module SpecHelpers
   module RailsProjectHelper
+    # Simple camelize implementation
+    def camelize(string)
+      string.split('_').map(&:capitalize).join
+    end
     def create_temp_rails_project(name = 'test_project')
       @temp_dir = Dir.mktmpdir
       project_dir = File.join(@temp_dir, name)
@@ -33,7 +37,7 @@ module SpecHelpers
         require_relative 'boot'
         require 'rails/all'
 
-        module #{name.camelize}
+        module #{camelize(name)}
           class Application < Rails::Application
             config.load_defaults 7.0
           end
@@ -53,7 +57,7 @@ module SpecHelpers
       controller_file = File.join(project_dir, 'app', 'controllers', "#{name}_controller.rb")
 
       content ||= <<~RUBY
-        class #{name.camelize}Controller < ApplicationController
+        class #{camelize(name)}Controller < ApplicationController
           def index
           end
         end
@@ -67,7 +71,7 @@ module SpecHelpers
       model_file = File.join(project_dir, 'app', 'models', "#{name}.rb")
 
       content ||= <<~RUBY
-        class #{name.camelize} < ApplicationRecord
+        class #{camelize(name)} < ApplicationRecord
         end
       RUBY
 

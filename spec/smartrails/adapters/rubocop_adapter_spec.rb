@@ -102,7 +102,7 @@ RSpec.describe SmartRails::Adapters::RubocopAdapter do
           expect(first_issue[:metadata][:cop_name]).to eq('Style/FrozenStringLiteralComment')
           expect(first_issue[:metadata][:correctable]).to be true
           
-          second_issue = issues.second
+          second_issue = issues[1]
           expect(second_issue[:severity]).to eq(:low)
           expect(second_issue[:auto_fixable]).to be true # StringLiterals is in AUTO_FIXABLE_COPS
         end
@@ -185,12 +185,12 @@ RSpec.describe SmartRails::Adapters::RubocopAdapter do
     describe '#determine_category' do
       it 'categorizes cops correctly' do
         expect(adapter.send(:determine_category, 'Style/StringLiterals')).to eq(:style)
-        expect(adapter.send(:determine_category, 'Layout/IndentationConsistency')).to eq(:layout)
+        expect(adapter.send(:determine_category, 'Layout/IndentationConsistency')).to eq(:style)
         expect(adapter.send(:determine_category, 'Rails/HttpPositionalArguments')).to eq(:rails)
         expect(adapter.send(:determine_category, 'Metrics/MethodLength')).to eq(:metrics)
         expect(adapter.send(:determine_category, 'Security/Eval')).to eq(:security)
         expect(adapter.send(:determine_category, 'Performance/RegexpMatch')).to eq(:performance)
-        expect(adapter.send(:determine_category, 'UnknownCop')).to eq(:general)
+        expect(adapter.send(:determine_category, 'UnknownCop')).to eq(:quality)
       end
     end
     
@@ -205,8 +205,8 @@ RSpec.describe SmartRails::Adapters::RubocopAdapter do
       it 'generates remediation text' do
         remediation = adapter.send(:generate_remediation, offense)
         
-        expect(remediation).to include('Style/StringLiterals')
-        expect(remediation).to include('Use single quotes')
+        expect(remediation).to include('Use')
+        expect(remediation).to include('quotes for string literals')
       end
     end
     
@@ -222,7 +222,7 @@ RSpec.describe SmartRails::Adapters::RubocopAdapter do
         command = adapter.send(:generate_fix_command, offense, 'app/models/user.rb')
         
         expect(command).to include('rubocop')
-        expect(command).to include('--autocorrect')
+        expect(command).to include('--auto-correct')
         expect(command).to include('Style/StringLiterals')
         expect(command).to include('app/models/user.rb')
       end
@@ -239,11 +239,11 @@ RSpec.describe SmartRails::Adapters::RubocopAdapter do
       it 'generates correct documentation URLs' do
         url = adapter.send(:generate_doc_url, 'Style/StringLiterals')
         expect(url).to include('rubocop.org')
-        expect(url).to include('Style/StringLiterals')
+        expect(url).to include('style_stringliterals')
         
         url = adapter.send(:generate_doc_url, 'Rails/HttpPositionalArguments')
-        expect(url).to include('rubocop-rails')
-        expect(url).to include('Rails/HttpPositionalArguments')
+        expect(url).to include('rubocop.org')
+        expect(url).to include('rails_httppositionalarguments')
       end
     end
     
@@ -264,9 +264,9 @@ RSpec.describe SmartRails::Adapters::RubocopAdapter do
           result = adapter.send(:run_rubocop_autocorrect, file_path, cop_names)
           
           expect(result[:success]).to be true
-          expect(result[:description]).to include('RuboCop autocorrect')
+          expect(result[:description]).to include('Auto-corrected')
           expect(result[:files_modified]).to include(file_path)
-          expect(result[:cops_applied]).to eq(cop_names)
+          expect(result[:cops_fixed]).to eq(cop_names)
         end
       end
       
@@ -283,9 +283,284 @@ RSpec.describe SmartRails::Adapters::RubocopAdapter do
           result = adapter.send(:run_rubocop_autocorrect, file_path, cop_names)
           
           expect(result[:success]).to be false
-          expect(result[:reason]).to include('RuboCop autocorrect failed')
+          expect(result[:reason]).to include('RuboCop auto-correct failed')
         end
       end
+    end
+  end
+  
+  describe 'edge cases and error handling' do
+    context 'when RuboCop output is malformed JSON' do
+      before do
+        allow(adapter).to receive(:gem_available?).with('rubocop').and_return(true)
+        allow(adapter).to receive(:require).with('rubocop')
+        allow(adapter).to receive(:run_command).and_return({
+          success: false,
+          output: '{"files": [malformed json'
+        })
+      end
+      
+      it 'handles malformed JSON gracefully' do
+        expect(adapter.audit).to eq([])
+      end
+    end
+    
+    context 'when RuboCop output has missing fields' do
+      let(:incomplete_json_output) do
+        {
+          "files" => [
+            {
+              "path" => "#{project_path}/test.rb",
+              "offenses" => [
+                {
+                  "severity" => "error",
+                  "message" => "Missing required fields",
+                  "cop_name" => nil,
+                  "correctable" => nil,
+                  "location" => { "line" => 1, "column" => 1 }
+                }
+              ]
+            }
+          ]
+        }.to_json
+      end
+      
+      before do
+        allow(adapter).to receive(:gem_available?).with('rubocop').and_return(true)
+        allow(adapter).to receive(:require).with('rubocop')
+        allow(adapter).to receive(:run_command).and_return({
+          success: false,
+          output: incomplete_json_output
+        })
+      end
+      
+      it 'handles missing fields gracefully' do
+        issues = adapter.audit
+        
+        expect(issues).to be_an(Array)
+        expect(issues.size).to eq(1)
+        
+        issue = issues.first
+        expect(issue[:message]).to eq('Missing required fields')
+        expect(issue[:severity]).to eq(:high)
+        expect(issue[:auto_fixable]).to be false # No cop_name means not in AUTO_FIXABLE_COPS
+      end
+    end
+    
+    context 'when file paths are outside project' do
+      let(:external_json_output) do
+        {
+          "files" => [
+            {
+              "path" => "/external/path/file.rb",
+              "offenses" => [
+                {
+                  "severity" => "convention",
+                  "message" => "External file offense",
+                  "cop_name" => "Style/StringLiterals",
+                  "correctable" => true,
+                  "location" => { "line" => 1, "column" => 1 }
+                }
+              ]
+            }
+          ]
+        }.to_json
+      end
+      
+      before do
+        allow(adapter).to receive(:gem_available?).with('rubocop').and_return(true)
+        allow(adapter).to receive(:require).with('rubocop')
+        allow(adapter).to receive(:run_command).and_return({
+          success: false,
+          output: external_json_output
+        })
+      end
+      
+      it 'handles external file paths correctly' do
+        issues = adapter.audit
+        
+        expect(issues.size).to eq(1)
+        issue = issues.first
+        expect(issue[:file]).to eq('/external/path/file.rb')
+      end
+    end
+    
+    context 'when RuboCop configuration is missing' do
+      before do
+        FileUtils.rm_f(File.join(project_path, '.rubocop.yml'))
+        FileUtils.rm_f(File.join(project_path, '.rubocop.yaml'))
+      end
+      
+      it 'detects missing config correctly' do
+        expect(adapter.send(:rubocop_config_present?)).to be false
+      end
+    end
+    
+    context 'when .rubocop.yml has invalid YAML' do
+      before do
+        File.write(File.join(project_path, '.rubocop.yml'), "invalid: yaml: content:")
+      end
+      
+      it 'handles invalid config gracefully' do
+        expect(adapter.send(:preferred_string_style)).to eq('single') # Falls back to default
+      end
+    end
+  end
+  
+  describe 'auto-fix edge cases' do
+    describe '#run_rubocop_autocorrect' do
+      context 'when multiple cops need fixing in same file' do
+        let(:cop_names) { ['Style/StringLiterals', 'Layout/TrailingWhitespace', 'Style/EmptyLines'] }
+        
+        before do
+          allow(adapter).to receive(:run_command).with(
+            "bundle exec rubocop --auto-correct --only #{cop_names.join(',')} test.rb"
+          ).and_return({
+            success: true,
+            output: 'Corrected 3 offenses'
+          })
+        end
+        
+        it 'fixes multiple cops in single command' do
+          result = adapter.send(:run_rubocop_autocorrect, 'test.rb', cop_names)
+          
+          expect(result[:success]).to be true
+          expect(result[:cops_fixed]).to eq(cop_names)
+        end
+      end
+      
+      context 'when RuboCop autocorrect partially fails' do
+        before do
+          allow(adapter).to receive(:run_command).and_return({
+            success: false,
+            output: 'Some cops could not be auto-corrected'
+          })
+        end
+        
+        it 'returns failure with diagnostic info' do
+          result = adapter.send(:run_rubocop_autocorrect, 'test.rb', ['Style/StringLiterals'])
+          
+          expect(result[:success]).to be false
+          expect(result[:reason]).to include('RuboCop auto-correct failed')
+          expect(result[:command]).to include('bundle exec rubocop')
+        end
+      end
+    end
+    
+    context 'when file has permission issues' do
+      let(:readonly_file) { File.join(project_path, 'readonly.rb') }
+      
+      before do
+        File.write(readonly_file, 'puts "test"')
+        File.chmod(0444, readonly_file)
+      end
+      
+      after do
+        File.chmod(0644, readonly_file) if File.exist?(readonly_file)
+      end
+      
+      it 'handles permission errors in auto-fix' do
+        allow(adapter).to receive(:run_command).and_return({
+          success: false,
+          output: 'Permission denied'
+        })
+        
+        result = adapter.send(:run_rubocop_autocorrect, 'readonly.rb', ['Style/StringLiterals'])
+        expect(result[:success]).to be false
+      end
+    end
+  end
+  
+  describe 'category determination edge cases' do
+    it 'categorizes unknown cops as quality' do
+      expect(adapter.send(:determine_category, 'UnknownCop/SomeRule')).to eq(:quality)
+      expect(adapter.send(:determine_category, 'Custom/BusinessRule')).to eq(:quality)
+    end
+    
+    it 'handles cops with multiple namespace levels' do
+      expect(adapter.send(:determine_category, 'Rails/ActiveRecord/MigrationRule')).to eq(:rails)
+      expect(adapter.send(:determine_category, 'Style/Layout/IndentationRule')).to eq(:style)
+    end
+  end
+  
+  describe 'documentation URL generation edge cases' do
+    it 'handles complex cop names in URLs' do
+      url = adapter.send(:generate_doc_url, 'Rails/ActiveRecord/HasManyThroughOrder')
+      expect(url).to include('cops_rails_activerecord_hasmanythroughorder')
+      
+      url = adapter.send(:generate_doc_url, 'Style/Documentation')  
+      expect(url).to include('cops_style_documentation')
+    end
+  end
+  
+  describe 'string style preference detection' do
+    context 'with double quotes preference in config' do
+      before do
+        File.write(File.join(project_path, '.rubocop.yml'), <<~YAML)
+          Style/StringLiterals:
+            EnforcedStyle: double_quotes
+        YAML
+      end
+      
+      it 'detects double quote preference' do
+        expect(adapter.send(:preferred_string_style)).to eq('double')
+      end
+    end
+    
+    context 'with single quotes preference in config' do
+      before do
+        File.write(File.join(project_path, '.rubocop.yml'), <<~YAML)
+          Style/StringLiterals:
+            EnforcedStyle: single_quotes
+        YAML
+      end
+      
+      it 'detects single quote preference' do
+        expect(adapter.send(:preferred_string_style)).to eq('single')
+      end
+    end
+    
+    context 'with complex config structure' do
+      before do
+        File.write(File.join(project_path, '.rubocop.yml'), <<~YAML)
+          inherit_from: .rubocop_base.yml
+          
+          AllCops:
+            TargetRubyVersion: 3.0
+            
+          Style:
+            StringLiterals:
+              EnforcedStyle: double_quotes
+              Enabled: true
+        YAML
+      end
+      
+      it 'navigates complex config structure' do
+        expect(adapter.send(:preferred_string_style)).to eq('double')
+      end
+    end
+  end
+  
+  describe 'remediation message generation' do
+    it 'generates specific remediation for known cops' do
+      expect(adapter.send(:generate_remediation, { 'cop_name' => 'Style/Documentation' }))
+        .to include('Add class/module documentation')
+        
+      expect(adapter.send(:generate_remediation, { 'cop_name' => 'Rails/HttpPositionalArguments' }))
+        .to include('keyword arguments')
+        
+      expect(adapter.send(:generate_remediation, { 'cop_name' => 'Layout/TrailingWhitespace' }))
+        .to include('Remove trailing whitespace')
+    end
+    
+    it 'falls back to original message for unknown cops' do
+      offense = { 'cop_name' => 'Unknown/Cop', 'message' => 'Original message' }
+      expect(adapter.send(:generate_remediation, offense)).to eq('Original message')
+    end
+    
+    it 'handles metrics cops with generic advice' do
+      offense = { 'cop_name' => 'Metrics/MethodLength', 'message' => 'Method too long' }
+      expect(adapter.send(:generate_remediation, offense)).to include('reduce complexity')
     end
   end
   

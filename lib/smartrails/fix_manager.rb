@@ -3,6 +3,8 @@
 require 'fileutils'
 require 'json'
 require 'tty-prompt'
+require_relative 'snapshot_manager'
+require_relative 'git_manager'
 
 module SmartRails
   class FixManager
@@ -10,8 +12,8 @@ module SmartRails
 
     def initialize(project_path)
       @project_path = project_path
-      @snapshot_manager = SnapshotManager.new(project_path)
-      @git_manager = GitManager.new(project_path)
+      @snapshot_manager = SmartRails::SnapshotManager.new(project_path)
+      @git_manager = SmartRails::GitManager.new(project_path)
       @prompt = TTY::Prompt.new
       @fixes_log = []
     end

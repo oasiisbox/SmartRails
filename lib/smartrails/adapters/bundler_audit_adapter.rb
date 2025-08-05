@@ -204,7 +204,7 @@ module SmartRails
 
       def can_auto_update_gem?(gem_info, advisory)
         # Only auto-update if there are patched versions available
-        advisory['patched_versions'] && !advisory['patched_versions'].empty?
+        !!(advisory['patched_versions'] && !advisory['patched_versions'].empty?)
       end
 
       def attempt_gem_update(gem_name, gem_issues)

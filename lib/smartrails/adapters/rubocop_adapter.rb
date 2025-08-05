@@ -81,21 +81,25 @@ module SmartRails
           file_path = relative_path(file_data['path'])
           
           file_data['offenses'].each do |offense|
+            # Skip offenses with missing essential data
+            next unless offense['message'] && offense['location']
+            
+            cop_name = offense['cop_name'] || 'Unknown'
             issues << create_issue(
               type: :quality,
               severity: SEVERITY_MAPPING[offense['severity']] || :medium,
-              category: determine_category(offense['cop_name']),
+              category: determine_category(cop_name),
               message: offense['message'],
               file: file_path,
-              line: offense['location']['line'],
-              column: offense['location']['column'],
+              line: offense['location']['line'] || 0,
+              column: offense['location']['column'] || 0,
               remediation: generate_remediation(offense),
-              auto_fixable: offense['correctable'] && AUTO_FIXABLE_COPS.include?(offense['cop_name']),
+              auto_fixable: offense['correctable'] && AUTO_FIXABLE_COPS.include?(cop_name),
               fix_command: generate_fix_command(offense, file_path),
-              documentation_url: generate_doc_url(offense['cop_name']),
+              documentation_url: generate_doc_url(cop_name),
               metadata: {
-                cop_name: offense['cop_name'],
-                correctable: offense['correctable'],
+                cop_name: cop_name,
+                correctable: offense['correctable'] || false,
                 severity: offense['severity']
               }
             )
@@ -125,7 +129,8 @@ module SmartRails
       end
 
       def generate_remediation(offense)
-        case offense['cop_name']
+        cop_name = offense['cop_name'] || 'Unknown'
+        case cop_name
         when 'Style/Documentation'
           'Add class/module documentation comment'
         when 'Rails/HttpPositionalArguments'
@@ -142,15 +147,17 @@ module SmartRails
       end
 
       def generate_fix_command(offense, file_path)
+        cop_name = offense['cop_name'] || 'Unknown'
         if offense['correctable']
-          "bundle exec rubocop --auto-correct --only #{offense['cop_name']} #{file_path}"
+          "bundle exec rubocop --auto-correct --only #{cop_name} #{file_path}"
         else
           nil
         end
       end
 
       def generate_doc_url(cop_name)
-        "https://docs.rubocop.org/rubocop/cops_#{cop_name.downcase.gsub('::', '/').gsub('/', '_')}.html"
+        safe_cop_name = (cop_name || 'Unknown').downcase.gsub('::', '/').gsub('/', '_')
+        "https://docs.rubocop.org/rubocop/cops_#{safe_cop_name}.html"
       end
 
       def run_rubocop_autocorrect(file_path, cop_names)
@@ -162,7 +169,7 @@ module SmartRails
         if result[:success]
           {
             success: true,
-            description: "Auto-corrected #{cow_names.size} RuboCop offenses in #{file_path}",
+            description: "Auto-corrected #{cop_names.size} RuboCop offenses in #{file_path}",
             files_modified: [file_path],
             cops_fixed: cop_names
           }
@@ -182,7 +189,11 @@ module SmartRails
         
         begin
           config = parse_yaml(read_file('.rubocop.yml'))
-          string_literals = config.dig('Style', 'StringLiterals', 'EnforcedStyle')
+          
+          # Try both formats: Style/StringLiterals and Style → StringLiterals
+          string_literals = config.dig('Style/StringLiterals', 'EnforcedStyle') ||
+                           config.dig('Style', 'StringLiterals', 'EnforcedStyle')
+          
           string_literals == 'double_quotes' ? 'double' : 'single'
         rescue
           'single'

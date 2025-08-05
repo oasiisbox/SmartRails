@@ -39,6 +39,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'bundler', '>= 1.17'
   spec.add_dependency 'colorize', '~> 0.8'
   spec.add_dependency 'thor', '~> 1.2'
+  spec.add_dependency 'tty-progressbar', '~> 0.18'
   spec.add_dependency 'tty-prompt', '~> 0.23'
   spec.add_dependency 'tty-spinner', '~> 0.9'
   spec.add_dependency 'tty-table', '~> 0.12'

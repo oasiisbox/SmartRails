@@ -25,8 +25,12 @@ RSpec.describe SmartRails::Adapters::BrakemanAdapter do
       
       context 'when Brakeman execution fails' do
         before do
-          # Mock Brakeman to raise an error
-          allow(adapter).to receive(:require).with('brakeman').and_raise(StandardError.new('Brakeman error'))
+          # Mock Brakeman to raise an error during execution, not during require
+          allow(adapter).to receive(:require).with('brakeman')
+          
+          brakeman_module = Module.new
+          allow(brakeman_module).to receive(:run).and_raise(StandardError.new('Brakeman execution error'))
+          stub_const('Brakeman', brakeman_module)
         end
         
         it 'returns empty array and logs error' do
@@ -188,6 +192,12 @@ RSpec.describe SmartRails::Adapters::BrakemanAdapter do
     end
     
     context 'when ApplicationController does not exist' do
+      before do
+        # Remove the ApplicationController file that was created by create_temp_rails_project
+        controller_file = File.join(project_path, 'app/controllers/application_controller.rb')
+        File.delete(controller_file) if File.exist?(controller_file)
+      end
+      
       it 'returns failure' do
         result = adapter.send(:fix_csrf_protection, issue)
         
@@ -307,6 +317,264 @@ RSpec.describe SmartRails::Adapters::BrakemanAdapter do
     it 'handles warning types with special characters' do
       url = adapter.send(:documentation_url, 'Mass Assignment')
       expect(url).to include('mass_assignment')
+    end
+  end
+  
+  describe 'edge cases and error handling' do
+    context 'when Brakeman tracker has missing data' do
+      let(:mock_tracker) { double('Brakeman::Tracker') }
+      let(:incomplete_warning) { double('Brakeman::Warning') }
+      
+      before do
+        allow(adapter).to receive(:gem_available?).with('brakeman').and_return(true)
+        allow(adapter).to receive(:require).with('brakeman')
+        
+        brakeman_module = Module.new
+        allow(brakeman_module).to receive(:run).and_return(mock_tracker)
+        stub_const('Brakeman', brakeman_module)
+        
+        allow(mock_tracker).to receive(:warnings).and_return([incomplete_warning])
+        allow(mock_tracker).to receive(:controller_warnings).and_return([])
+        allow(mock_tracker).to receive(:model_warnings).and_return([])
+        
+        # Mock incomplete warning (missing some fields)
+        allow(incomplete_warning).to receive_messages(
+          message: 'Incomplete warning',
+          warning_type: 'Unknown Type',
+          confidence: nil,
+          check_name: nil,
+          fingerprint: nil,
+          line: nil,  
+          format_code: nil
+        )
+        
+        mock_file = double('file')
+        allow(mock_file).to receive(:absolute).and_return("#{project_path}/unknown_file.rb")
+        allow(incomplete_warning).to receive(:file).and_return(mock_file)
+      end
+      
+      it 'handles warnings with missing data gracefully' do
+        issues = adapter.audit
+        
+        expect(issues).to be_an(Array)
+        expect(issues.size).to eq(1)
+        
+        issue = issues.first
+        expect(issue[:message]).to eq('Incomplete warning')
+        expect(issue[:severity]).to eq(:low) # Default when confidence is nil
+        expect(issue[:auto_fixable]).to be false # Unknown type not in AUTO_FIXABLE_TYPES
+      end
+    end
+    
+    context 'when file paths are outside project' do
+      let(:mock_tracker) { double('Brakeman::Tracker') }
+      let(:external_warning) { double('Brakeman::Warning') }
+      
+      before do
+        allow(adapter).to receive(:gem_available?).with('brakeman').and_return(true)
+        allow(adapter).to receive(:require).with('brakeman')
+        
+        brakeman_module = Module.new
+        allow(brakeman_module).to receive(:run).and_return(mock_tracker)
+        stub_const('Brakeman', brakeman_module)
+        
+        allow(mock_tracker).to receive(:warnings).and_return([external_warning])
+        allow(mock_tracker).to receive(:controller_warnings).and_return([])
+        allow(mock_tracker).to receive(:model_warnings).and_return([])
+        
+        allow(external_warning).to receive_messages(
+          message: 'External file warning',
+          warning_type: 'Cross-Site Request Forgery',
+          confidence: 0,
+          check_name: 'CheckCSRF',
+          fingerprint: 'external_123',
+          line: 15,
+          format_code: 'external code'
+        )
+        
+        # File outside project directory
+        mock_file = double('file')
+        allow(mock_file).to receive(:absolute).and_return('/external/path/file.rb')
+        allow(external_warning).to receive(:file).and_return(mock_file)
+      end
+      
+      it 'handles external file paths correctly' do
+        issues = adapter.audit
+        
+        expect(issues.size).to eq(1)
+        issue = issues.first
+        expect(issue[:file]).to eq('/external/path/file.rb') # Should keep full path for external files
+      end
+    end
+    
+    context 'when Brakeman configuration files exist' do
+      before do
+        # Create .brakeman.ignore file
+        File.write(File.join(project_path, '.brakeman.ignore'), <<~JSON)
+          {
+            "ignored_warnings": [
+              {
+                "warning_type": "SQL Injection",
+                "fingerprint": "ignored_123"
+              }
+            ]
+          }
+        JSON
+      end
+      
+      it 'uses ignore file when available' do
+        expect(adapter.send(:ignore_file_path)).to eq(File.join(project_path, '.brakeman.ignore'))
+      end
+    end
+    
+    context 'when .brakeman.ignore does not exist' do
+      it 'returns nil for ignore file path' do
+        expect(adapter.send(:ignore_file_path)).to be_nil
+      end
+    end
+  end
+  
+  describe 'auto-fix edge cases' do
+    describe '#fix_csrf_protection' do
+      context 'when ApplicationController has complex structure' do
+        before do
+          create_rails_controller(project_path, 'application', <<~RUBY)
+            # This is the main application controller
+            class ApplicationController < ActionController::Base
+              # Some existing configuration
+              before_action :authenticate_user!
+              
+              private
+              
+              def current_user
+                # Implementation
+              end
+            end
+          RUBY
+        end
+        
+        it 'adds CSRF protection in correct location' do
+          issue = { file: 'app/controllers/application_controller.rb' }
+          result = adapter.send(:fix_csrf_protection, issue)
+          
+          expect(result[:success]).to be true
+          
+          controller_content = File.read(File.join(project_path, 'app/controllers/application_controller.rb'))
+          expect(controller_content).to include('protect_from_forgery with: :exception')
+          # Should be added after class definition but before other content
+          lines = controller_content.lines
+          csrf_line_index = lines.find_index { |line| line.include?('protect_from_forgery') }
+          class_line_index = lines.find_index { |line| line.include?('class ApplicationController') }
+          expect(csrf_line_index).to be > class_line_index
+        end
+      end
+      
+      context 'when ApplicationController file is not writable' do
+        before do
+          controller_path = File.join(project_path, 'app/controllers/application_controller.rb')
+          create_rails_controller(project_path, 'application', 'class ApplicationController < ActionController::Base; end')
+          File.chmod(0444, controller_path) # Make file read-only
+        end
+        
+        after do
+          # Restore write permissions for cleanup
+          controller_path = File.join(project_path, 'app/controllers/application_controller.rb')
+          File.chmod(0644, controller_path) if File.exist?(controller_path)
+        end
+        
+        it 'handles permission errors gracefully' do
+          issue = { file: 'app/controllers/application_controller.rb' }
+          
+          expect {
+            adapter.send(:fix_csrf_protection, issue)
+          }.to raise_error # Should raise error that can be caught by calling code
+        end
+      end
+    end
+    
+    describe '#fix_ssl_verification' do
+      context 'with multiple SSL bypass patterns in same file' do
+        before do
+          file_path = File.join(project_path, 'lib/http_client.rb')
+          FileUtils.mkdir_p(File.dirname(file_path))
+          File.write(file_path, <<~RUBY)
+            require 'net/http'
+            
+            class HttpClient
+              def initialize
+                @http = Net::HTTP.new(host, port)
+                @http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+                @http.use_ssl = true
+                
+                # Another pattern
+                @http2 = Net::HTTP.new(host2, port2)  
+                @http2.verify_mode = VERIFY_NONE
+              end
+              
+              def unsafe_request
+                http = Net::HTTP.new(host, port)
+                http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+                http.request(request)
+              end
+            end
+          RUBY
+        end
+        
+        it 'removes all SSL bypass patterns' do
+          issue = { file: 'lib/http_client.rb' }
+          result = adapter.send(:fix_ssl_verification, issue)
+          
+          expect(result[:success]).to be true
+          
+          file_content = File.read(File.join(project_path, 'lib/http_client.rb'))
+          expect(file_content).not_to include('VERIFY_NONE')
+          expect(file_content.scan(/SSL verification enabled for security/).size).to be >= 2
+        end
+      end
+      
+      context 'with SSL bypass in string literals' do
+        before do
+          file_path = File.join(project_path, 'lib/config.rb')
+          FileUtils.mkdir_p(File.dirname(file_path))
+          File.write(file_path, <<~RUBY)
+            CONFIG = {
+              ssl_verify: "OpenSSL::SSL::VERIFY_NONE",
+              description: "This sets verify_mode = OpenSSL::SSL::VERIFY_NONE"
+            }
+          RUBY
+        end
+        
+        it 'handles SSL patterns in strings' do
+          issue = { file: 'lib/config.rb' }
+          result = adapter.send(:fix_ssl_verification, issue)
+          
+          expect(result[:success]).to be true
+          
+          file_content = File.read(File.join(project_path, 'lib/config.rb'))
+          expect(file_content).not_to include('VERIFY_NONE')
+        end
+      end
+    end
+  end
+  
+  describe 'documentation URL generation' do
+    it 'handles special characters in warning types' do
+      url = adapter.send(:documentation_url, 'Cross-Site Request Forgery')
+      expect(url).to eq('https://brakemanscanner.org/docs/warning_types/cross_site_request_forgery/')
+      
+      url = adapter.send(:documentation_url, 'SSL/TLS Verification')
+      expect(url).to eq('https://brakemanscanner.org/docs/warning_types/ssl_tls_verification/')
+      
+      url = adapter.send(:documentation_url, 'Multiple-Word_Warning')
+      expect(url).to eq('https://brakemanscanner.org/docs/warning_types/multiple_word_warning/')
+    end
+  end
+  
+  describe 'confidence level edge cases' do
+    it 'handles confidence levels outside normal range' do
+      expect(adapter.send(:severity_mapping, -1)).to eq(:low)
+      expect(adapter.send(:severity_mapping, 999)).to eq(:low) 
+      expect(adapter.send(:severity_mapping, nil)).to eq(:low)
     end
   end
   

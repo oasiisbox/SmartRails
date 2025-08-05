@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+require 'yaml' 
+require 'digest'
+require 'json'
+
 module SmartRails
   module Adapters
     class BaseAdapter
@@ -84,9 +88,8 @@ module SmartRails
       end
 
       def generate_fingerprint(params)
-        require 'digest'
         content = "#{tool_name}:#{params[:file]}:#{params[:line]}:#{params[:message]}"
-        Digest::SHA256.hexdigest(content)[0..15]
+        ::Digest::SHA256.hexdigest(content)[0..15]
       end
 
       # Check if gem is available
@@ -107,8 +110,8 @@ module SmartRails
 
       # Parse YAML safely
       def parse_yaml(content)
-        YAML.safe_load(content)
-      rescue Psych::SyntaxError => e
+        ::YAML.safe_load(content)
+      rescue ::Psych::SyntaxError => e
         Rails.logger.error "YAML parse error: #{e.message}" if defined?(Rails)
         {}
       end
