@@ -3,68 +3,105 @@
 require 'parallel'
 require 'tty-spinner'
 require 'tty-progressbar'
+require_relative 'config_manager'
 
 module SmartRails
   class Orchestrator
     attr_reader :project_path, :options, :results
 
-    AUDIT_PIPELINE = [
-      {
-        phase: :security_critical,
-        name: 'Security Critical',
-        tools: [:brakeman, :bundler_audit],
-        parallel: false,
-        stop_on_critical: true
-      },
-      {
-        phase: :quality,
-        name: 'Code Quality',
-        tools: [:rubocop, :rails_best_practices, :ruby_critic],
-        parallel: true,
-        stop_on_critical: false
-      },
-      {
-        phase: :database,
-        name: 'Database Health',
-        tools: [:ar_doctor, :lol_dba, :consistency_fail],
-        parallel: false,
-        stop_on_critical: false
-      },
-      {
-        phase: :performance,
-        name: 'Performance',
-        tools: [:bullet_check, :memory_profiler],
-        parallel: true,
-        stop_on_critical: false
-      },
-      {
-        phase: :cleanup,
-        name: 'Code Cleanup',
-        tools: [:traceroute, :debride],
-        parallel: true,
-        stop_on_critical: false
-      }
-    ].freeze
+    # Intelligent pipeline - adapts based on project characteristics
+    def build_audit_pipeline
+      pipeline = []
+      
+      # Security always comes first (critical)
+      if should_run_phase?('security')
+        pipeline << {
+          phase: :security,
+          name: '🔒 Security Analysis',
+          tools: [:brakeman, :bundler_audit],
+          parallel: false,
+          stop_on_critical: true,
+          priority: 1
+        }
+      end
+      
+      # Code quality (high priority for maintainability)
+      if should_run_phase?('quality')
+        pipeline << {
+          phase: :quality,
+          name: '📊 Code Quality',
+          tools: [:rubocop, :rails_best_practices],
+          parallel: true,
+          stop_on_critical: false,
+          priority: 2
+        }
+      end
+      
+      # Performance (high impact on user experience)
+      if should_run_phase?('performance')
+        pipeline << {
+          phase: :performance,
+          name: '⚡ Performance',
+          tools: [:bullet_check],
+          parallel: true,
+          stop_on_critical: false,
+          priority: 3
+        }
+      end
+      
+      # Database health (important for data integrity)
+      if should_run_phase?('database')
+        pipeline << {
+          phase: :database,
+          name: '🗄️ Database Health',
+          tools: [:ar_doctor],
+          parallel: false,
+          stop_on_critical: false,
+          priority: 4
+        }
+      end
+      
+      # Code cleanup (nice to have)
+      if should_run_phase?('cleanup')
+        pipeline << {
+          phase: :cleanup,
+          name: '🧹 Code Cleanup',
+          tools: [:traceroute],
+          parallel: true,
+          stop_on_critical: false,
+          priority: 5
+        }
+      end
+      
+      pipeline.sort_by { |phase| phase[:priority] }
+    end
 
     def initialize(project_path, options = {})
       @project_path = project_path
       @options = options
+      @config = ConfigManager.new(project_path)
       @results = { phases: [], metadata: generate_metadata }
       @available_tools = detect_available_tools
     end
 
     def run
       start_time = Time.now
+      pipeline = build_audit_pipeline
       
-      AUDIT_PIPELINE.each do |phase_config|
-        next unless should_run_phase?(phase_config)
-        
+      puts "\n🚀 SmartRails Intelligent Audit Pipeline".blue.bold
+      puts "Analyzing #{File.basename(@project_path)} (#{detect_project_type})".light_blue
+      puts "=" * 60
+      
+      pipeline.each do |phase_config|
         phase_results = run_phase(phase_config)
         @results[:phases] << phase_results
         
+        # Smart stopping logic
         if phase_config[:stop_on_critical] && has_critical_issues?(phase_results)
+          puts "\\n🚨 Critical security issues found - stopping for immediate attention".red.bold
           @results[:stopped_early] = true
-          @results[:stop_reason] = "Critical issues found in #{phase_config[:name]}"
+          @results[:stop_reason] = "Critical security issues require immediate attention"
+          @results[:critical_issues] = extract_critical_issues(phase_results)
           break
         end
       end
@@ -72,7 +109,9 @@ module SmartRails
       @results[:duration_ms] = ((Time.now - start_time) * 1000).round
       @results[:summary] = generate_summary
       @results[:score] = calculate_scores
+      @results[:recommendations] = generate_intelligent_recommendations
       
+      display_completion_summary
       @results
     end
 
@@ -108,12 +147,29 @@ module SmartRails
       system("which #{command} > /dev/null 2>&1")
     end
 
-    def should_run_phase?(phase_config)
-      return false if @options[:only] && !@options[:only].include?(phase_config[:phase])
-      return false if @options[:skip] && @options[:skip].include?(phase_config[:phase])
+    def should_run_phase?(phase_name)
+      # Check config first
+      return false if @config.skip_phases.include?(phase_name)
       
-      # Check if at least one tool is available for this phase
-      phase_config[:tools].any? { |tool| @available_tools[tool] }
+      # If specific phases requested, honor that
+      requested_phases = @config.audit_phases
+      return requested_phases.include?(phase_name) unless requested_phases.empty?
+      
+      # Auto-detection based on project characteristics
+      case phase_name
+      when 'security'
+        true # Always run security
+      when 'quality'
+        has_rubocop_config? || has_quality_tools?
+      when 'performance'
+        rails_app? && has_performance_tools?
+      when 'database'
+        rails_app_with_database?
+      when 'cleanup'
+        large_rails_app? && has_cleanup_tools?
+      else
+        false
+      end
     end
 
     def run_phase(phase_config)
@@ -289,6 +345,142 @@ module SmartRails
       end
       
       [100 - total_deduction, 0].max
+    end
+
+    # New intelligent methods
+    def detect_project_type
+      return "Rails #{detect_rails_version}" if rails_app?
+      return "Ruby Gem" if gem_project?
+      return "Ruby Project" if ruby_project?
+      "Unknown Project"
+    end
+
+    def has_rubocop_config?
+      File.exist?(File.join(@project_path, '.rubocop.yml')) ||
+        File.exist?(File.join(@project_path, '.rubocop.yaml'))
+    end
+
+    def has_quality_tools?
+      @available_tools[:rubocop] || @available_tools[:rails_best_practices]
+    end
+
+    def has_performance_tools?
+      @available_tools[:bullet_check]
+    end
+
+    def has_cleanup_tools?
+      @available_tools[:traceroute] || @available_tools[:debride]
+    end
+
+    def rails_app?
+      File.exist?(File.join(@project_path, 'config', 'application.rb'))
+    end
+
+    def rails_app_with_database?
+      rails_app? && File.exist?(File.join(@project_path, 'db', 'migrate'))
+    end
+
+    def large_rails_app?
+      return false unless rails_app?
+      
+      ruby_files = Dir.glob(File.join(@project_path, 'app', '**', '*.rb')).count
+      ruby_files > 50
+    end
+
+    def gem_project?
+      Dir.glob(File.join(@project_path, '*.gemspec')).any?
+    end
+
+    def ruby_project?
+      File.exist?(File.join(@project_path, 'Gemfile')) ||
+        Dir.glob(File.join(@project_path, '**', '*.rb')).any?
+    end
+
+    def extract_critical_issues(phase_results)
+      phase_results[:issues].select { |issue| issue[:severity] == :critical }
+    end
+
+    def generate_intelligent_recommendations
+      all_issues = @results[:phases].flat_map { |p| p[:issues] }
+      
+      recommendations = {
+        immediate: [],
+        short_term: [],
+        long_term: []
+      }
+
+      # Immediate actions (critical/high severity)
+      critical_count = all_issues.count { |i| i[:severity] == :critical }
+      high_count = all_issues.count { |i| i[:severity] == :high }
+      
+      if critical_count > 0
+        recommendations[:immediate] << "🚨 Address #{critical_count} critical security issues immediately"
+        recommendations[:immediate] << "💡 Run 'smartrails fix' to apply automated security fixes"
+      end
+
+      auto_fixable = all_issues.count { |i| i[:auto_fixable] }
+      if auto_fixable > 0
+        recommendations[:immediate] << "⚡ Apply #{auto_fixable} automatic fixes with 'smartrails fix'"
+      end
+
+      # Short-term improvements
+      if high_count > 3
+        recommendations[:short_term] << "🎯 Focus on #{high_count} high-priority issues"
+      end
+
+      if @results[:score][:quality] < 80
+        recommendations[:short_term] << "📈 Improve code quality with consistent linting and formatting"
+      end
+
+      # Long-term strategy
+      if @results[:score][:global] < 70
+        recommendations[:long_term] << "🏗️ Establish code review process and continuous monitoring"
+        recommendations[:long_term] << "📚 Consider team training on Rails security best practices"
+      end
+
+      if !@config.config_exists?
+        recommendations[:long_term] << "⚙️ Create .smartrails.yml for project-specific customization"
+      end
+
+      recommendations
+    end
+
+    def display_completion_summary
+      puts "\\n" + "=" * 60
+      puts "📊 Audit Complete".green.bold
+      puts "=" * 60
+      
+      summary = @results[:summary]
+      score = @results[:score][:global]
+      
+      # Score with color
+      score_color = case score
+                   when 90..100 then :green
+                   when 70..89 then :yellow
+                   when 50..69 then :light_red
+                   else :red
+                   end
+      
+      puts "🎯 Overall Score: #{score}%".colorize(score_color).bold
+      puts "📈 Issues Found: #{summary[:total_issues]} (#{summary[:auto_fixable]} auto-fixable)"
+      puts "⏱️  Duration: #{@results[:duration_ms]}ms"
+      
+      # Next steps
+      if @results[:recommendations]
+        puts "\\n💡 Next Steps:".blue.bold
+        
+        if @results[:recommendations][:immediate].any?
+          puts "   Immediate:".red.bold
+          @results[:recommendations][:immediate].each { |rec| puts "   • #{rec}" }
+        end
+        
+        if summary[:auto_fixable] > 0
+          puts "\\n🔧 Ready to fix #{summary[:auto_fixable]} issues automatically?"
+          puts "   Run: smartrails fix"
+        end
+      end
+      
+      puts "\\n📄 Detailed report: tmp/smartrails_reports/smartrails_report.html"
     end
   end
 end
