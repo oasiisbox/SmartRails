@@ -45,7 +45,7 @@ module SmartRails
           end
           
           # Generate and save reports
-          reports = generate_reports(audit_results)
+          generate_reports(audit_results)
           
           # Display summary
           display_summary(audit_results)
