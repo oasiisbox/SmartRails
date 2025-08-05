@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require 'spec_helper'
+require 'smartrails/auditors/security_auditor'
+
 RSpec.describe SmartRails::Auditors::SecurityAuditor do
   let(:project_root) { create_temp_rails_project }
   let(:auditor) { described_class.new(project_root) }
