@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= @title %></title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --success-color: #059669;
+            --warning-color: #d97706;
+            --danger-color: #dc2626;
+            --info-color: #0891b2;
+            --light-bg: #f8fafc;
+            --border-color: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background-color: var(--light-bg);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .header .meta {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .summary-card h3 {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-card .number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .summary-card .label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .score-card .number {
+            color: var(--success-color);
+        }
+
+        .score-card .number::after {
+            content: '%';
+            font-size: 1.5rem;
+        }
+
+        .critical .number { color: var(--danger-color); }
+        .high .number { color: var(--warning-color); }
+        .medium .number { color: var(--info-color); }
+        .low .number { color: var(--text-secondary); }
+        .fixable .number { color: var(--success-color); }
+
+        .scores-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .scores-section h2 {
+            margin-bottom: 25px;
+            color: var(--text-primary);
+        }
+
+        .score-bars {
+            display: grid;
+            gap: 20px;
+        }
+
+        .score-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .score-bar-label {
+            min-width: 100px;
+            font-weight: 500;
+        }
+
+        .score-bar-track {
+            flex: 1;
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--danger-color) 0%, var(--warning-color) 50%, var(--success-color) 100%);
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+
+        .score-bar-value {
+            min-width: 50px;
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .phases-section {
+            margin-bottom: 30px;
+        }
+
+        .phase-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .phase-header {
+            padding: 25px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .phase-header h3 {
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .phase-meta {
+            display: flex;
+            gap: 30px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .issues-list {
+            padding: 0;
+        }
+
+        .issue-item {
+            padding: 15px 25px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .issue-item:last-child {
+            border-bottom: none;
+        }
+
+        .issue-severity {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
+
+        .severity-critical { background: var(--danger-color); }
+        .severity-high { background: var(--warning-color); }
+        .severity-medium { background: var(--info-color); }
+        .severity-low { background: var(--text-secondary); }
+
+        .issue-content {
+            flex: 1;
+        }
+
+        .issue-message {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .issue-details {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .issue-file {
+            font-family: 'SF Mono', Menlo, monospace;
+            background: var(--light-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .issue-fixable {
+            color: var(--success-color);
+            font-weight: 500;
+        }
+
+        .recommendations-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .recommendations-section h2 {
+            margin-bottom: 25px;
+            color: var(--text-primary);
+        }
+
+        .recommendation-category {
+            margin-bottom: 25px;
+        }
+
+        .recommendation-category h3 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .recommendation-list {
+            list-style: none;
+        }
+
+        .recommendation-list li {
+            padding: 8px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .recommendation-list li::before {
+            content: '•';
+            color: var(--primary-color);
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .phase-meta {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .issue-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📊 <%= @title %></h1>
+            <div class="meta">
+                Generated on <%= @generated_at %> • SmartRails v<%= SmartRails::VERSION %>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-grid">
+            <div class="summary-card score-card">
+                <h3>Global Score</h3>
+                <div class="number"><%= @global_score %></div>
+                <div class="label">Overall Quality</div>
+            </div>
+            
+            <div class="summary-card">
+                <h3>Total Issues</h3>
+                <div class="number"><%= @total_issues %></div>
+                <div class="label">Found</div>
+            </div>
+            
+            <div class="summary-card critical">
+                <h3>Critical</h3>
+                <div class="number"><%= @audit_results[:summary][:critical] %></div>
+                <div class="label">High Priority</div>
+            </div>
+            
+            <div class="summary-card fixable">
+                <h3>Auto-fixable</h3>
+                <div class="number"><%= @audit_results[:summary][:auto_fixable] %></div>
+                <div class="label">Quick Fixes</div>
+            </div>
+        </div>
+
+        <!-- Scores Section -->
+        <div class="scores-section">
+            <h2>🎯 Category Scores</h2>
+            <div class="score-bars">
+                <% @audit_results[:score].each do |category, score| %>
+                    <div class="score-bar">
+                        <div class="score-bar-label"><%= category.to_s.capitalize %></div>
+                        <div class="score-bar-track">
+                            <div class="score-bar-fill" style="width: <%= score %>%"></div>
+                        </div>
+                        <div class="score-bar-value"><%= score %>%</div>
+                    </div>
+                <% end %>
+            </div>
+        </div>
+
+        <!-- Phases Section -->
+        <div class="phases-section">
+            <% @phases.each do |phase| %>
+                <div class="phase-card">
+                    <div class="phase-header">
+                        <h3><%= phase[:name] %></h3>
+                        <div class="phase-meta">
+                            <span>Duration: <%= phase[:duration_ms] %>ms</span>
+                            <span>Tools: <%= phase[:tools_run].join(', ') %></span>
+                            <span>Issues: <%= phase[:issue_count] %></span>
+                        </div>
+                    </div>
+                    
+                    <% if phase[:issues].any? %>
+                        <div class="issues-list">
+                            <% phase[:issues].first(10).each do |issue| %>
+                                <div class="issue-item">
+                                    <div class="issue-severity severity-<%= issue[:severity] %>"></div>
+                                    <div class="issue-content">
+                                        <div class="issue-message"><%= issue[:message] %></div>
+                                        <div class="issue-details">
+                                            <span class="issue-file"><%= issue[:file] %>:<%= issue[:line] %></span>
+                                            • Tool: <%= issue[:tool] %>
+                                            <% if issue[:auto_fixable] %>
+                                                • <span class="issue-fixable">Auto-fixable ✅</span>
+                                            <% end %>
+                                        </div>
+                                    </div>
+                                </div>
+                            <% end %>
+                            
+                            <% if phase[:issues].size > 10 %>
+                                <div class="issue-item">
+                                    <div class="issue-content">
+                                        <div class="issue-message">
+                                            ...and <%= phase[:issues].size - 10 %> more issues
+                                        </div>
+                                    </div>
+                                </div>
+                            <% end %>
+                        </div>
+                    <% end %>
+                </div>
+            <% end %>
+        </div>
+
+        <!-- Recommendations -->
+        <% if @recommendations && (@recommendations[:immediate]&.any? || @recommendations[:short_term]&.any? || @recommendations[:long_term]&.any?) %>
+            <div class="recommendations-section">
+                <h2>💡 Recommendations</h2>
+                
+                <% if @recommendations[:immediate]&.any? %>
+                    <div class="recommendation-category">
+                        <h3>🚨 Immediate Actions</h3>
+                        <ul class="recommendation-list">
+                            <% @recommendations[:immediate].each do |rec| %>
+                                <li><%= rec %></li>
+                            <% end %>
+                        </ul>
+                    </div>
+                <% end %>
+                
+                <% if @recommendations[:short_term]&.any? %>
+                    <div class="recommendation-category">
+                        <h3>📅 Short Term</h3>
+                        <ul class="recommendation-list">
+                            <% @recommendations[:short_term].each do |rec| %>
+                                <li><%= rec %></li>
+                            <% end %>
+                        </ul>
+                    </div>
+                <% end %>
+                
+                <% if @recommendations[:long_term]&.any? %>
+                    <div class="recommendation-category">
+                        <h3>🎯 Long Term</h3>
+                        <ul class="recommendation-list">
+                            <% @recommendations[:long_term].each do |rec| %>
+                                <li><%= rec %></li>
+                            <% end %>
+                        </ul>
+                    </div>
+                <% end %>
+            </div>
+        <% end %>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>
+                Report generated by 
+                <a href="https://github.com/oasiisbox/SmartRails" target="_blank">
+                    SmartRails
+                </a>
+                - The comprehensive Rails audit tool
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Add some interactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animate score bars
+            setTimeout(() => {
+                document.querySelectorAll('.score-bar-fill').forEach(bar => {
+                    const width = bar.style.width;
+                    bar.style.width = '0%';
+                    setTimeout(() => {
+                        bar.style.width = width;
+                    }, 100);
+                });
+            }, 500);
+        });
+    </script>
+</body>
+</html>
