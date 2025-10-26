@@ -21,16 +21,18 @@ module SmartRails
       private
 
       def create_app
+        serve_options = options.dup
         reports_path = reports_dir
 
         Class.new(Sinatra::Base) do
-          set :port, options[:port]
-          set :bind, options[:host]
+          set :port, serve_options[:port]
+          set :bind, serve_options[:host]
           set :public_folder, reports_path
           set :views, File.expand_path('../../views', __dir__)
+          set :reports_path, reports_path
 
           get '/' do
-            @reports = Dir.glob(File.join(reports_path, 'audit_*.json'))
+            @reports = Dir.glob(File.join(settings.reports_path, 'audit_*.json'))
               .sort_by { |f| File.mtime(f) }
               .reverse
               .map do |file|
@@ -46,7 +48,7 @@ module SmartRails
           end
 
           get '/report/:filename' do
-            file_path = File.join(reports_path, params[:filename])
+            file_path = File.join(settings.reports_path, params[:filename])
             halt 404 unless File.exist?(file_path)
 
             if params[:filename].end_with?('.json')
@@ -61,7 +63,7 @@ module SmartRails
           get '/api/reports' do
             content_type :json
 
-            reports = Dir.glob(File.join(reports_path, 'audit_*.json')).map do |file|
+            reports = Dir.glob(File.join(settings.reports_path, 'audit_*.json')).map do |file|
               data = JSON.parse(File.read(file))
               {
                 filename: File.basename(file),
