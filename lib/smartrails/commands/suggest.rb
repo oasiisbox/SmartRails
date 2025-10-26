@@ -8,6 +8,8 @@ module SmartRails
   module Commands
     class Suggest < Base
       def execute(source = nil)
+        ensure_directories
+
         content = get_content(source)
         return unless content
 
