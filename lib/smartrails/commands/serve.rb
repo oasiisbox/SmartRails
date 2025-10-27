@@ -46,12 +46,23 @@ module SmartRails
           end
 
           get '/report/:filename' do
-            file_path = File.join(reports_path, params[:filename])
+            # Prevent path traversal attacks by validating filename
+            filename = params[:filename]
+
+            # Reject filenames with path traversal sequences
+            halt 403, 'Access denied' if filename.include?('..') || filename.include?('/')
+
+            # Ensure the resolved path is within reports_path
+            file_path = File.join(reports_path, filename)
+            real_path = File.expand_path(file_path)
+            reports_real_path = File.expand_path(reports_path)
+
+            halt 403, 'Access denied' unless real_path.start_with?(reports_real_path)
             halt 404 unless File.exist?(file_path)
 
-            if params[:filename].end_with?('.json')
+            if filename.end_with?('.json')
               content_type :json
-            elsif params[:filename].end_with?('.html')
+            elsif filename.end_with?('.html')
               content_type :html
             end
 

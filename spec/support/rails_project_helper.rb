@@ -2,8 +2,17 @@
 
 module SpecHelpers
   module RailsProjectHelper
-    def create_temp_rails_project(name = 'test_project')
+    def setup_temp_dir
       @temp_dir = Dir.mktmpdir
+    end
+
+    def cleanup_temp_dir
+      FileUtils.rm_rf(@temp_dir) if @temp_dir && Dir.exist?(@temp_dir)
+      @temp_dir = nil
+    end
+
+    def create_rails_project(name = 'test_project')
+      setup_temp_dir unless @temp_dir
       project_dir = File.join(@temp_dir, name)
       Dir.mkdir(project_dir)
 
@@ -33,7 +42,7 @@ module SpecHelpers
         require_relative 'boot'
         require 'rails/all'
 
-        module #{name.camelize}
+        module TestApp
           class Application < Rails::Application
             config.load_defaults 7.0
           end
@@ -46,14 +55,20 @@ module SpecHelpers
         end
       RUBY
 
+      # Create README
+      File.write(File.join(project_dir, 'README.md'), "# #{name}\n")
+
       project_dir
     end
 
-    def create_rails_controller(project_dir, name, content = nil)
+    # Alias for backward compatibility
+    alias create_temp_rails_project create_rails_project
+
+    def create_controller(project_dir, name, content = nil)
       controller_file = File.join(project_dir, 'app', 'controllers', "#{name}_controller.rb")
 
       content ||= <<~RUBY
-        class #{name.camelize}Controller < ApplicationController
+        class #{name.capitalize}Controller < ApplicationController
           def index
           end
         end
@@ -63,11 +78,14 @@ module SpecHelpers
       controller_file
     end
 
+    # Alias for backward compatibility
+    alias create_rails_controller create_controller
+
     def create_rails_model(project_dir, name, content = nil)
       model_file = File.join(project_dir, 'app', 'models', "#{name}.rb")
 
       content ||= <<~RUBY
-        class #{name.camelize} < ApplicationRecord
+        class #{name.capitalize} < ApplicationRecord
         end
       RUBY
 
