@@ -2,6 +2,15 @@
 
 module SpecHelpers
   module FileSystemHelper
+    def setup_temp_dir
+      @temp_dir = Dir.mktmpdir
+    end
+
+    def cleanup_temp_dir
+      FileUtils.rm_rf(@temp_dir) if @temp_dir && Dir.exist?(@temp_dir)
+      @temp_dir = nil
+    end
+
     def create_temp_file(content, extension = '.rb')
       file = Tempfile.new(['test', extension])
       file.write(content)
