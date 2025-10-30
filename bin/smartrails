@@ -3,10 +3,9 @@
 
 require 'pathname'
 
-# Add lib to load path
 lib_path = File.expand_path('../lib', __dir__)
 $LOAD_PATH.unshift(lib_path) unless $LOAD_PATH.include?(lib_path)
 
 require 'smartrails'
 
-SmartRails::CLI.start(ARGV)
+exit SmartRails::CLI.new(ARGV).run
