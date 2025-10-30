@@ -5,6 +5,9 @@ require_relative 'base_auditor'
 module SmartRails
   module Auditors
     class CodeQualityAuditor < BaseAuditor
+      # Minimum ratio of inline documentation to executable code required in key files.
+      INLINE_DOCUMENTATION_THRESHOLD = 0.05
+
       def run
         check_test_coverage
         check_linting_configuration
@@ -98,13 +101,19 @@ module SmartRails
 
           # Simple check for comments
           comment_lines = content.lines.count { |line| line.strip.start_with?('#') }
-          total_lines = content.lines.count
+          executable_lines = content.lines.count do |line|
+            stripped = line.strip
+            !stripped.empty? && !stripped.start_with?('#')
+          end
 
-          next unless comment_lines.to_f / total_lines < 0.05 # Less than 5% comments
+          next if executable_lines.zero?
+
+          documentation_ratio = comment_lines.to_f / executable_lines
+          next unless documentation_ratio < INLINE_DOCUMENTATION_THRESHOLD
 
           add_issue(
             type: 'Documentation',
-            message: 'Insufficient inline documentation',
+            message: "Inline documentation below #{(INLINE_DOCUMENTATION_THRESHOLD * 100).to_i}% threshold",
             severity: :low,
             file: file
           )

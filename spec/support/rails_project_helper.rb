@@ -20,6 +20,9 @@ module SpecHelpers
         Dir.mkdir(File.join(project_dir, 'config', dir))
       end
 
+      # Provide a README so documentation checks that look for its presence can pass
+      File.write(File.join(project_dir, 'README.md'), "# #{name.camelize}\n")
+
       # Create Gemfile
       File.write(File.join(project_dir, 'Gemfile'), <<~GEMFILE)
         source 'https://rubygems.org'
