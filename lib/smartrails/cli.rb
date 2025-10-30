@@ -1,58 +1,127 @@
 # frozen_string_literal: true
 
-require 'thor'
+require 'optparse'
 require 'json'
-require 'fileutils'
 require 'pathname'
 
-require_relative 'commands/init'
-require_relative 'commands/audit'
-require_relative 'commands/suggest'
-require_relative 'commands/serve'
-require_relative 'version'
-
 module SmartRails
-  class CLI < Thor
-    def self.exit_on_failure?
-      true
+  # Lightweight command-line interface to run a SmartRails audit.
+  class CLI
+    DEFAULT_FORMAT = :text
+
+    def initialize(argv)
+      @argv = argv.dup
     end
 
-    desc 'version', 'Display SmartRails version'
-    def version
-      say "SmartRails v#{SmartRails::VERSION}", :blue
+    def run
+      options = { format: DEFAULT_FORMAT }
+      parser = build_parser(options)
+      parser.order!(@argv)
+
+      if options[:show_version]
+        puts "SmartRails v#{SmartRails::VERSION}"
+        return 0
+      end
+
+      if options[:show_help]
+        puts parser
+        return 0
+      end
+
+      project_path = @argv.shift
+      unless project_path
+        warn 'Error: you must supply the path to a Rails project.'
+        warn parser
+        return 1
+      end
+
+      result = audit_project(project_path)
+      print_result(result, options[:format])
+      result.ok? ? 0 : 2
+    rescue OptionParser::ParseError => e
+      warn e.message
+      warn
+      warn build_parser.to_s
+      1
     end
 
-    desc 'init PROJECT_NAME', 'Initialize a new SmartRails project'
-    def init(project_name)
-      Commands::Init.new(options).execute(project_name)
+    private
+
+    def build_parser(options = {})
+      OptionParser.new do |opts|
+        opts.banner = 'Usage: smartrails [options] PATH'
+        opts.separator ''
+        opts.separator 'Options:'
+
+        opts.on('-f', '--format FORMAT', 'Output format (text or json)') do |format|
+          options[:format] = format.to_s.downcase.to_sym
+        end
+
+        opts.on('-v', '--version', 'Show SmartRails version') do
+          options[:show_version] = true
+        end
+
+        opts.on('-h', '--help', 'Show this help message') do
+          options[:show_help] = true
+        end
+      end
     end
 
-    desc 'audit', 'Run an interactive or automatic audit of the current Rails project'
-    option :auto, type: :boolean, default: false, desc: 'Run audit without user interaction'
-    option :format, type: :string, default: 'json', desc: 'Output format (json, html)'
-    option :fix, type: :boolean, default: false, desc: 'Automatically fix issues when possible'
-    def audit
-      Commands::Audit.new(options).execute
+    def audit_project(path)
+      result = SmartRails::AuditResult.new(project_path: path)
+
+      unless result.project_path.exist?
+        result.add_issue(:project, "Path does not exist: #{result.project_path}")
+        return result
+      end
+
+      unless result.project_path.directory?
+        result.add_issue(:project, "Path is not a directory: #{result.project_path}")
+        return result
+      end
+
+      rails_application = result.project_path.join('config', 'application.rb')
+      unless rails_application.file?
+        result.add_issue(:project, 'config/application.rb not found. Is this a Rails project?')
+      end
+
+      result
     end
 
-    desc 'suggest [SOURCE]', 'Use LLM to generate suggestions from a file or message'
-    option :file, aliases: '-f', type: :string, desc: 'Path to file to analyze'
-    option :llm, aliases: '-l', type: :string, default: 'ollama', desc: 'LLM model to use (ollama, openai, mistral)'
-    option :model, aliases: '-m', type: :string, desc: 'Specific model name to use'
-    def suggest(source = nil)
-      Commands::Suggest.new(options).execute(source)
+    def print_result(result, format)
+      case format
+      when :json
+        puts(JSON.pretty_generate(result: serialize_result(result)))
+      else
+        print_text_result(result)
+      end
     end
 
-    desc 'serve', 'Launch a local web interface to view reports'
-    option :port, aliases: '-p', type: :numeric, default: 4567, desc: 'Port to run the server on'
-    option :host, aliases: '-h', type: :string, default: 'localhost', desc: 'Host to bind to'
-    def serve
-      Commands::Serve.new(options).execute
+    def serialize_result(result)
+      {
+        project_path: result.project_path.to_s,
+        ok: result.ok?,
+        findings: result.findings.map do |finding|
+          {
+            category: finding.category,
+            message: finding.message,
+            details: finding.details
+          }.compact
+        end
+      }
     end
 
-    desc 'check:llm', 'Check LLM connection'
-    def check_llm
-      Commands::Suggest.new(options).check_connection
+    def print_text_result(result)
+      puts "SmartRails audit for #{result.project_path}"
+      if result.ok?
+        puts 'No issues detected.'
+      else
+        puts 'Findings:'
+        result.findings.each_with_index do |finding, index|
+          puts format('%<index>2d. [%<category>s] %<message>s', index: index + 1, category: finding.category, message: finding.message)
+          puts "    Details: #{finding.details}" if finding.details
+        end
+      end
     end
   end
 end

@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
+require 'pathname'
+
 require_relative 'smartrails/version'
+require_relative 'smartrails/audit_result'
 require_relative 'smartrails/cli'
 
 module SmartRails
